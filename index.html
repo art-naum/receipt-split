@@ -259,6 +259,15 @@
   }
   .result-buyer .name{font-weight:600;font-family:'Fraunces',serif;font-size:1.02rem;}
   .result-buyer .sum{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent-dark);font-size:1.05rem;}
+  .result-total{
+    background:transparent;
+    border-top:2px solid var(--ink);
+    border-radius:0;
+    margin-top:4px;
+    padding-top:14px;
+  }
+  .result-total .name{color:var(--ink);}
+  .result-total .sum{font-size:1.15rem;color:var(--ink);}
   .result-detail{font-size:0.76rem;color:var(--muted);margin-top:3px;}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
   .history-item{
@@ -303,7 +312,7 @@
   <div class="card">
     <h2><span class="num">5</span> Історія чеків</h2>
     <div id="historyList"><div class="empty">Ще немає збережених чеків</div></div>
-    <div class="footnote">Дані зберігаються лише в пам'яті вкладки. Щоб не втратити їх — тисни «Зберегти файл» (JSON) і завантаж його наступного разу — все дані, включно з розподілом по позиціях, підтягнуться назад, і можна буде продовжити редагування.</div>
+    <div class="footnote">Дані зберігаються лише в пам'яті вкладки. Щоб не втратити їх — тисни «Зберегти файл» (JSON) і завантаж його наступного разу — всі дані, включно з розподілом по позиціях, підтягнуться назад, і можна буде продовжити редагування.</div>
     <div class="toolbar">
       <button class="btn-ghost" onclick="exportState()">⬇ Зберегти файл (JSON)</button>
       <button class="btn-ghost" onclick="document.getElementById('importInput').click()">⬆ Завантажити файл</button>
@@ -436,9 +445,18 @@ function parseReceiptXml(xmlText, fileName){
   const fn = (datEl && datEl.getAttribute('FN')) || (eEl && eEl.getAttribute('FN')) || '';
   const tnRaw = datEl ? datEl.getAttribute('TN') : '';
   const tnDigits = tnRaw ? (tnRaw.match(/\d+/g)||[]).join('') : '';
-  // Some PRRO models encode TN as a 12-digit string: 7-digit ID + 4-digit branch/location code + 1-digit checksum.
-  // The meaningful seller ID there is the first 7 digits plus the trailing checksum digit.
-  const tn = tnDigits.length===12 ? (tnDigits.slice(0,7) + tnDigits.slice(-1)) : tnDigits;   // ІД продавця, лише цифри
+  // TN, cleaned of non-digit characters, comes in a few lengths depending on the PRRO model:
+  // 8 or 10 digits -> seller ID (ІД продавця); 12 digits -> full tax number (ПН продавця), kept as-is.
+  let tn = '', tnLabel = 'ІД продавця';
+  if(tnDigits.length===12){
+    tn = tnDigits;
+    tnLabel = 'ПН продавця';
+  }else if(tnDigits.length===8 || tnDigits.length===10){
+    tn = tnDigits;
+    tnLabel = 'ІД продавця';
+  }else{
+    tn = tnDigits;
+  }
   const zn = datEl ? datEl.getAttribute('ZN') : '';
   const docNumber = datEl ? datEl.getAttribute('DI') : '';
   const shiftSerial = eEl ? eEl.getAttribute('SE') : '';
@@ -457,7 +475,7 @@ function parseReceiptXml(xmlText, fileName){
     };
   }
 
-  // tax groups breakdown (from <E><TX .../></E>)
+  // tax groups breakdown (from <E><TX .../></E>, or attributes directly on <E> for some models)
   // Rate attributes come in two flavours depending on the PRRO/generator:
   // already-formatted percent strings like "20.00", or scaled integers like "700" meaning 7.00%.
   function parseRate(raw){
@@ -466,27 +484,35 @@ function parseReceiptXml(xmlText, fileName){
   }
   function taxGroupFromNode(node){
     return {
-      group: node.getAttribute('TX') || '',
+      rawGroup: node.getAttribute('TX') || '',
       rate: parseRate(node.getAttribute('TXPR')),
       taxableSum: parseInt(node.getAttribute('TXSM')||'0',10)/100,
       discountSum: parseInt(node.getAttribute('DTSM')||'0',10)/100,
       discountRate: parseRate(node.getAttribute('DTPR'))
     };
   }
-  let taxGroups = [];
+  let rawTaxGroups = [];
   if(eEl){
     const txChildren = Array.from(eEl.querySelectorAll(':scope > TX'));
     if(txChildren.length>0){
-      taxGroups = txChildren.map(taxGroupFromNode);
+      rawTaxGroups = txChildren.map(taxGroupFromNode);
     }else if(eEl.getAttribute('TX')){
       // some PRRO generators put the (single) tax group's attributes directly on <E> itself
-      taxGroups = [taxGroupFromNode(eEl)];
+      rawTaxGroups = [taxGroupFromNode(eEl)];
     }
   }
+  const taxGroups = [];
+  rawTaxGroups.forEach(tx=>{
+    const letter = ukGroupLetter(tx.rawGroup);
+    taxGroups.push({ label: `ПДВ ${letter}`, rate: tx.rate, sum: tx.taxableSum });
+    if(tx.discountSum>0){
+      taxGroups.push({ label: `Акциз ${letter}`, rate: tx.discountRate, sum: tx.discountSum });
+    }
+  });
 
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod,
-    fn, tn, zn, docNumber, shiftSerial, payment, taxGroups
+    fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, taxGroups
   };
 }
 
@@ -539,7 +565,7 @@ function ukGroupLetter(groupNum){
 function renderReceiptDetails(r){
   const rows = [];
   if(r.fn) rows.push(['ФН ПРРО', r.fn]);
-  if(r.tn) rows.push(['ІД продавця', r.tn]);
+  if(r.tn) rows.push([r.tnLabel || 'ІД продавця', r.tn]);
   if(r.zn) rows.push(['Заводський номер', r.zn]);
   if(r.docNumber) rows.push(['№ документа', r.docNumber]);
   if(r.shiftSerial) rows.push(['Серійний номер', r.shiftSerial]);
@@ -563,20 +589,12 @@ function renderReceiptDetails(r){
 
   const taxHtml = (r.taxGroups && r.taxGroups.length>0) ? `
     <div class="detail-subhead">Податкові групи</div>
-    ${r.taxGroups.map(tx=>{
-      const letter = ukGroupLetter(tx.group);
-      const vatLine = `
-        <div class="detail-row">
-          <span class="detail-label">ПДВ ${escapeHtml(letter)}${tx.rate?(' · ставка '+escapeHtml(tx.rate)+'%'):''}</span>
-          <span class="detail-val">${fmtMoney(tx.taxableSum)}</span>
-        </div>`;
-      const exciseLine = (tx.discountSum>0) ? `
-        <div class="detail-row">
-          <span class="detail-label">Акциз ${escapeHtml(letter)}${tx.discountRate?(' · ставка '+escapeHtml(tx.discountRate)+'%'):''}</span>
-          <span class="detail-val">${fmtMoney(tx.discountSum)}</span>
-        </div>` : '';
-      return vatLine + exciseLine;
-    }).join('')}
+    ${r.taxGroups.map(tx=>`
+      <div class="detail-row">
+        <span class="detail-label">${escapeHtml(tx.label)}${tx.rate?(' · ставка '+escapeHtml(tx.rate)+'%'):''}</span>
+        <span class="detail-val">${fmtMoney(tx.sum)}</span>
+      </div>
+    `).join('')}
   ` : '';
 
   if(rows.length===0 && !taxHtml) return '';
@@ -776,12 +794,18 @@ function renderResults(){
     }
   });
 
+  const grandTotal = Object.values(totals).reduce((a,v)=>a+v,0);
   const rows = state.buyers.map(b=>`
     <div class="result-buyer">
       <span class="name">${escapeHtml(b.name)}</span>
       <span class="sum">${fmtMoney(totals[b.id]||0)}</span>
     </div>
-  `).join('');
+  `).join('') + `
+    <div class="result-buyer result-total">
+      <span class="name">Разом</span>
+      <span class="sum">${fmtMoney(grandTotal)}</span>
+    </div>
+  `;
 
   let warnings = '';
   if(unassigned > 0.01){
