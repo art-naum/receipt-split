@@ -421,7 +421,10 @@ function parseReceiptXml(xmlText, fileName){
   const totalSum = mEl ? parseInt(mEl.getAttribute('SM')||'0',10)/100 : items.reduce((a,i)=>a+i.sum,0);
   const payMethod = mEl ? (mEl.getAttribute('NM') || mEl.getAttribute('PSNM') || '') : '';
   const macEl = doc.querySelector('MAC');
-  const checkNo = (macEl && macEl.getAttribute('ID')) || (eEl ? eEl.getAttribute('NO') : '') || '';
+  const checkNoFromFileName = (fileName||'')
+    .replace(/\.xml$/i, '')
+    .replace(/(\s\(\d+\)|_\d+)$/, '');
+  const checkNo = (macEl && macEl.getAttribute('ID')) || checkNoFromFileName || (eEl ? eEl.getAttribute('NO') : '') || '';
   const tsRaw = (eEl && eEl.getAttribute('TS')) || (doc.querySelector('TS') ? doc.querySelector('TS').textContent : '');
   let dateStr = '';
   if(tsRaw && tsRaw.length>=14){
@@ -515,7 +518,7 @@ function renderReceipt(){
 function renderReceiptDetails(r){
   const rows = [];
   if(r.fn) rows.push(['ФН ПРРО', r.fn]);
-  if(r.tn) rows.push(['ІД продавця', r.tn]);
+  if(r.tn) rows.push(['ІД (ПН) продавця', r.tn]);
   if(r.zn) rows.push(['Заводський номер', r.zn]);
   if(r.docNumber) rows.push(['№ документа', r.docNumber]);
   if(r.shiftSerial) rows.push(['Серійний номер', r.shiftSerial]);
