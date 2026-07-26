@@ -321,7 +321,7 @@
     <div id="historyList"><div class="empty">Ще немає збережених чеків</div></div>
     <div class="footnote">Дані зберігаються лише в пам'яті вкладки. Щоб не втратити їх — тисни «Зберегти файл» (JSON) і завантаж його наступного разу — всі дані, включно з розподілом по позиціях, підтягнуться назад, і можна буде продовжити редагування.</div>
     <div class="toolbar">
-      <button class="btn-ghost" onclick="exportState()">⬇ Зберегти файл (JSON)</button>
+      <button id="exportBtn" class="btn-ghost" style="display:none;" onclick="exportState()">⬇ Зберегти файл (JSON)</button>
       <button class="btn-ghost" onclick="document.getElementById('importInput').click()">⬆ Завантажити файл</button>
       <input type="file" id="importInput" accept=".json" style="display:none" onchange="importState(this.files[0])">
     </div>
@@ -379,11 +379,18 @@ function renderBuyers(){
   const el = document.getElementById('buyerList');
   if(state.buyers.length===0){
     el.innerHTML = '<div class="empty">Додай хоча б одного покупця нижче</div>';
-    return;
+  }else{
+    el.innerHTML = state.buyers.map(b=>`
+      <span class="chip">${escapeHtml(b.name)} <span class="del" onclick="removeBuyer('${b.id}')">✕</span></span>
+    `).join('');
   }
-  el.innerHTML = state.buyers.map(b=>`
-    <span class="chip">${escapeHtml(b.name)} <span class="del" onclick="removeBuyer('${b.id}')">✕</span></span>
-  `).join('');
+  updateSaveButtonVisibility();
+}
+function updateSaveButtonVisibility(){
+  const btn = document.getElementById('exportBtn');
+  if(!btn) return;
+  const hasData = state.buyers.length>0 || !!state.receipt || state.history.length>0;
+  btn.style.display = hasData ? '' : 'none';
 }
 
 /* ---------- FILE HANDLING ---------- */
@@ -396,6 +403,7 @@ async function handleFile(file){
     state.receipt = parsed;
     renderReceipt();
     renderResults();
+    updateSaveButtonVisibility();
   }catch(err){
     alert('Не вдалося розпізнати файл: ' + err.message);
   }
@@ -915,6 +923,7 @@ function renderHistory(){
   const el = document.getElementById('historyList');
   if(state.history.length===0){
     el.innerHTML = '<div class="empty">Ще немає збережених чеків</div>';
+    updateSaveButtonVisibility();
     return;
   }
   const grand = {};
@@ -964,6 +973,7 @@ function renderHistory(){
       <div style="font-family:'Fraunces',serif;font-weight:600;margin-bottom:8px;">Разом по всіх чеках</div>
       <div class="result-grid">${grandRows}</div>
     </div>` : '');
+  updateSaveButtonVisibility();
 }
 
 /* ---------- EXPORT / IMPORT ---------- */
