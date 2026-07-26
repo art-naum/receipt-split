@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Розкладка чеку</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#eef2ec;
+    --card:#ffffff;
+    --ink:#132018;
+    --ink-soft:#3c463f;
+    --muted:#6d786f;
+    --line:#d8ded4;
+    --accent:#1f7a5c;
+    --accent-dark:#155b44;
+    --accent-soft:#e2f0e9;
+    --warn:#c98a2e;
+    --warn-soft:#fbf0dc;
+    --danger:#b3432f;
+    --danger-soft:#fbe7e2;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    padding:32px 16px 80px;
+  }
+  .wrap{max-width:900px;margin:0 auto;}
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:2.1rem;
+    letter-spacing:-0.01em;
+    margin:0 0 4px;
+  }
+  .subtitle{color:var(--muted);font-size:0.95rem;margin-bottom:28px;}
+  .card{
+    background:var(--card);
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    padding:22px 24px;
+    margin-bottom:22px;
+  }
+  .card h2{
+    font-family:'Fraunces',serif;
+    font-size:1.15rem;
+    font-weight:600;
+    margin:0 0 14px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .card h2 .num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.75rem;
+    color:var(--accent);
+    background:var(--accent-soft);
+    border-radius:6px;
+    padding:2px 7px;
+  }
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  input[type=text], input[type=number], select{
+    font-family:'Inter',sans-serif;
+    font-size:0.9rem;
+    padding:8px 10px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fff;
+    color:var(--ink);
+  }
+  input[type=number]{width:90px;}
+  button{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:0.85rem;
+    border:none;
+    border-radius:8px;
+    padding:9px 14px;
+    cursor:pointer;
+    transition:transform .06s ease, background .15s ease;
+  }
+  button:active{transform:scale(0.97);}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary:hover{background:var(--accent-dark);}
+  .btn-ghost{background:var(--accent-soft);color:var(--accent-dark);}
+  .btn-ghost:hover{background:#d3e9dd;}
+  .btn-danger{background:var(--danger-soft);color:var(--danger);}
+  .btn-danger:hover{background:#f6d5cc;}
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:6px 12px;
+    border-radius:999px;
+    border:1.5px solid var(--line);
+    background:#fff;
+    font-size:0.85rem;
+    font-weight:500;
+    cursor:pointer;
+    user-select:none;
+    color:var(--ink-soft);
+    transition:all .12s ease;
+  }
+  .chip:hover{border-color:var(--accent);}
+  .chip.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  .chip .del{opacity:.6;font-weight:700;}
+  .chip .del:hover{opacity:1;}
+  .buyer-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .empty{
+    color:var(--muted);
+    font-size:0.9rem;
+    padding:18px;
+    text-align:center;
+    border:1.5px dashed var(--line);
+    border-radius:10px;
+  }
+  input[type=file]{display:none;}
+  .upload-zone{
+    border:2px dashed var(--line);
+    border-radius:12px;
+    padding:26px;
+    text-align:center;
+    cursor:pointer;
+    color:var(--muted);
+    font-size:0.9rem;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .upload-zone:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .upload-zone b{color:var(--ink);}
+
+  /* --- receipt strip --- */
+  .receipt-outer{
+    background:#fff;
+    border-radius:2px;
+    box-shadow:0 6px 24px rgba(19,32,24,0.10);
+    padding:26px 24px 6px;
+    font-family:'JetBrains Mono',monospace;
+    position:relative;
+    clip-path: polygon(
+      0% 0%, 100% 0%, 100% 98%,
+      97% 100%, 94% 98%, 91% 100%, 88% 98%, 85% 100%, 82% 98%, 79% 100%, 76% 98%, 73% 100%,
+      70% 98%, 67% 100%, 64% 98%, 61% 100%, 58% 98%, 55% 100%, 52% 98%, 49% 100%, 46% 98%,
+      43% 100%, 40% 98%, 37% 100%, 34% 98%, 31% 100%, 28% 98%, 25% 100%, 22% 98%, 19% 100%,
+      16% 98%, 13% 100%, 10% 98%, 7% 100%, 4% 98%, 1% 100%, 0% 98%
+    );
+  }
+  .receipt-head{text-align:center;margin-bottom:14px;}
+  .receipt-head .shop{font-size:0.78rem;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;}
+  .receipt-head .meta{font-size:0.72rem;color:var(--muted);margin-top:4px;}
+  .rline{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    font-size:0.82rem;
+    padding:10px 0;
+    border-bottom:1px dashed var(--line);
+  }
+  .rline:last-child{border-bottom:none;}
+  .rline .r-name{color:var(--ink);font-weight:500;flex:1;min-width:0;}
+  .rline .r-qty{color:var(--muted);font-size:0.75rem;white-space:nowrap;}
+  .rline .r-sum{font-weight:600;white-space:nowrap;}
+  .rline .r-disc{color:var(--accent-dark);font-size:0.7rem;}
+  .receipt-total{
+    display:flex;justify-content:space-between;
+    padding:14px 0 20px;
+    font-size:0.95rem;font-weight:700;
+    border-top:2px solid var(--ink);
+    margin-top:4px;
+  }
+
+  /* --- assignment block --- */
+  .assign-block{margin-top:8px;padding-top:12px;border-top:1px dashed var(--line);}
+  .assign-row{
+    display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;
+    font-family:'Inter',sans-serif;
+    padding:14px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .assign-row:last-child{border-bottom:none;}
+  .assign-item-name{
+    flex:1 1 220px;
+    min-width:180px;
+    font-size:0.88rem;
+  }
+  .assign-item-name .nm{font-weight:600;}
+  .assign-item-name .sub{color:var(--muted);font-size:0.78rem;display:block;margin-top:2px;}
+  .assign-controls{flex:2 1 340px;min-width:280px;}
+  .mode-toggle{display:flex;gap:6px;margin-top:8px;}
+  .mode-toggle button{
+    background:#f2f4f1;color:var(--ink-soft);font-size:0.75rem;padding:6px 10px;
+  }
+  .mode-toggle button.active{background:var(--accent);color:#fff;}
+  .manual-row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:0.82rem;}
+  .manual-row .label{min-width:110px;color:var(--ink-soft);}
+  .remainder{
+    margin-top:8px;font-size:0.78rem;font-weight:600;
+    padding:4px 9px;border-radius:6px;display:inline-block;
+  }
+  .remainder.ok{background:var(--accent-soft);color:var(--accent-dark);}
+  .remainder.bad{background:var(--warn-soft);color:var(--warn);}
+  .warn-banner{
+    background:var(--warn-soft);color:var(--warn);
+    border-radius:10px;padding:10px 14px;font-size:0.85rem;font-weight:500;
+    margin-bottom:14px;
+  }
+
+  /* --- results --- */
+  .result-grid{display:flex;flex-direction:column;gap:10px;}
+  .result-buyer{
+    display:flex;justify-content:space-between;align-items:center;
+    background:var(--accent-soft);
+    border-radius:10px;padding:12px 16px;
+  }
+  .result-buyer .name{font-weight:600;font-family:'Fraunces',serif;font-size:1.02rem;}
+  .result-buyer .sum{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent-dark);font-size:1.05rem;}
+  .result-detail{font-size:0.76rem;color:var(--muted);margin-top:3px;}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  .history-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 14px;border-radius:10px;border:1px solid var(--line);margin-bottom:8px;font-size:0.85rem;
+  }
+  .history-item .hf{color:var(--muted);font-size:0.78rem;}
+  .footnote{color:var(--muted);font-size:0.78rem;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Розкладка чеку</h1>
+  <div class="subtitle">Завантаж фіскальний чек (XML), познач, чиї це покупки — і одразу побачиш, скільки має віддати кожен.</div>
+
+  <!-- BUYERS -->
+  <div class="card">
+    <h2><span class="num">1</span> Покупці</h2>
+    <div class="buyer-list" id="buyerList"></div>
+    <div class="row">
+      <input type="text" id="newBuyerName" placeholder="Ім'я покупця" style="min-width:200px;">
+      <button class="btn-primary" onclick="addBuyer()">Додати</button>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="card">
+    <h2><span class="num">2</span> Чек</h2>
+    <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
+      <b>Натисни, щоб обрати XML-файл чеку</b><br>або перетягни його сюди
+    </div>
+    <input type="file" id="fileInput" accept=".xml" onchange="handleFile(this.files[0])">
+  </div>
+
+  <!-- RECEIPT + ASSIGNMENT -->
+  <div id="receiptSection"></div>
+
+  <!-- RESULTS -->
+  <div id="resultsSection"></div>
+
+  <!-- HISTORY -->
+  <div class="card">
+    <h2><span class="num">5</span> Історія чеків</h2>
+    <div id="historyList"><div class="empty">Ще немає збережених чеків</div></div>
+    <div class="footnote">Дані зберігаються лише в пам'яті вкладки. Щоб не втратити їх — тисни «Зберегти файл» (JSON) і завантаж його наступного разу — все дані, включно з розподілом по позиціях, підтягнуться назад, і можна буде продовжити редагування.</div>
+    <div class="toolbar">
+      <button class="btn-ghost" onclick="exportState()">⬇ Зберегти файл (JSON)</button>
+      <button class="btn-ghost" onclick="document.getElementById('importInput').click()">⬆ Завантажити файл</button>
+      <input type="file" id="importInput" accept=".json" style="display:none" onchange="importState(this.files[0])">
+    </div>
+  </div>
+</div>
+
+<script>
+let state = {
+  buyers: [],           // {id, name}
+  receipt: null,        // {fileName, items:[...], totalSum, checkNo, dateStr, payMethod}
+  history: []           // {id, fileName, dateStr, totalSum, totals:[{buyerId,name,sum}], unassigned}
+};
+let nextBuyerId = 1;
+
+function uid(prefix){ return prefix + Math.random().toString(36).slice(2,9); }
+
+function fmtMoney(n){
+  return (Math.round(n*100)/100).toFixed(2).replace('.', ',') + ' ₴';
+}
+function fmtQty(n){
+  let s = n.toFixed(3);
+  s = s.replace(/0+$/,'').replace(/\.$/,'');
+  return s;
+}
+function decodeXmlBuffer(buf){
+  const sniff = new TextDecoder('latin1').decode(buf.slice(0,200));
+  const m = sniff.match(/encoding=["']([^"']+)["']/i);
+  let enc = m ? m[1] : 'utf-8';
+  try{ return new TextDecoder(enc).decode(buf); }
+  catch(e){ return new TextDecoder('utf-8').decode(buf); }
+}
+
+/* ---------- BUYERS ---------- */
+function addBuyer(){
+  const input = document.getElementById('newBuyerName');
+  const name = input.value.trim();
+  if(!name) return;
+  state.buyers.push({id: uid('b'), name});
+  input.value='';
+  renderBuyers();
+  if(state.receipt) renderReceipt();
+}
+function removeBuyer(id){
+  state.buyers = state.buyers.filter(b=>b.id!==id);
+  if(state.receipt){
+    state.receipt.items.forEach(it=>{
+      it.buyerIds = it.buyerIds.filter(x=>x!==id);
+      delete it.manualValues[id];
+    });
+  }
+  renderBuyers();
+  if(state.receipt) renderReceipt();
+}
+function renderBuyers(){
+  const el = document.getElementById('buyerList');
+  if(state.buyers.length===0){
+    el.innerHTML = '<div class="empty">Додай хоча б одного покупця нижче</div>';
+    return;
+  }
+  el.innerHTML = state.buyers.map(b=>`
+    <span class="chip">${escapeHtml(b.name)} <span class="del" onclick="removeBuyer('${b.id}')">✕</span></span>
+  `).join('');
+}
+
+/* ---------- FILE HANDLING ---------- */
+async function handleFile(file){
+  if(!file) return;
+  try{
+    const buf = await file.arrayBuffer();
+    const text = decodeXmlBuffer(buf);
+    const parsed = parseReceiptXml(text, file.name);
+    state.receipt = parsed;
+    renderReceipt();
+    renderResults();
+  }catch(err){
+    alert('Не вдалося розпізнати файл: ' + err.message);
+  }
+}
+
+function parseReceiptXml(xmlText, fileName){
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if(doc.querySelector('parsererror')) throw new Error('це не коректний XML');
+  const cEl = doc.querySelector('C');
+  if(!cEl) throw new Error('не знайдено блок чеку <C>');
+  const products = Array.from(cEl.querySelectorAll(':scope > P'));
+  const discounts = Array.from(cEl.querySelectorAll(':scope > D'));
+  const mEl = cEl.querySelector(':scope > M');
+  const eEl = cEl.querySelector(':scope > E');
+
+  const items = products.map(p=>{
+    const n = p.getAttribute('N');
+    const name = p.getAttribute('NM') || '(без назви)';
+    const qty = parseInt(p.getAttribute('Q')||'0',10)/1000;
+    const price = parseInt(p.getAttribute('PRC')||'0',10)/100;
+    let sum = parseInt(p.getAttribute('SM')||'0',10)/100;
+    const code = p.getAttribute('CD') || '';
+    const disc = discounts.find(d=>{
+      const ni = d.querySelector('NI');
+      return ni && ni.getAttribute('NI')===n;
+    });
+    let discount = 0;
+    if(disc){
+      discount = parseInt(disc.getAttribute('SM')||'0',10)/100;
+      sum = Math.round((sum - discount)*100)/100;
+    }
+    return {
+      id: uid('i'), n, name, qty, price, sum, discount, code,
+      buyerIds: [], mode: 'equal', manualType: 'amount', manualValues: {}
+    };
+  });
+
+  const totalSum = mEl ? parseInt(mEl.getAttribute('SM')||'0',10)/100 : items.reduce((a,i)=>a+i.sum,0);
+  const payMethod = mEl ? (mEl.getAttribute('NM') || mEl.getAttribute('PSNM') || '') : '';
+  const checkNo = eEl ? eEl.getAttribute('NO') : '';
+  const tsRaw = (eEl && eEl.getAttribute('TS')) || (doc.querySelector('TS') ? doc.querySelector('TS').textContent : '');
+  let dateStr = '';
+  if(tsRaw && tsRaw.length>=14){
+    const y=tsRaw.slice(0,4), mo=tsRaw.slice(4,6), d=tsRaw.slice(6,8), h=tsRaw.slice(8,10), mi=tsRaw.slice(10,12);
+    dateStr = `${d}.${mo}.${y} ${h}:${mi}`;
+  }
+
+  return {fileName, items, totalSum, checkNo, dateStr, payMethod};
+}
+
+/* ---------- RECEIPT + ASSIGNMENT RENDERING ---------- */
+function renderReceipt(){
+  const el = document.getElementById('receiptSection');
+  if(!state.receipt){ el.innerHTML=''; return; }
+  const r = state.receipt;
+
+  if(state.buyers.length===0){
+    el.innerHTML = '<div class="warn-banner">Спочатку додай покупців у розділі 1 — тоді зможеш розподілити позиції.</div>';
+    return;
+  }
+  const lines = r.items.map(it=>`
+    <div class="rline">
+      <span class="r-name">${escapeHtml(it.name)}${it.discount>0?` <span class="r-disc">(знижка ${fmtMoney(it.discount)})</span>`:''}</span>
+      <span class="r-qty">${fmtQty(it.qty)} × ${fmtMoney(it.price)}</span>
+      <span class="r-sum">${fmtMoney(it.sum)}</span>
+    </div>
+  `).join('');
+
+  const assignRows = r.items.map(it=>renderAssignRow(it)).join('');
+
+  el.innerHTML = `
+    <div class="card">
+      <h2><span class="num">2</span> Чек ${r.checkNo?('№'+r.checkNo):''}</h2>
+      <div class="receipt-outer">
+        <div class="receipt-head">
+          <div class="shop">Фіскальний чек</div>
+          <div class="meta">${r.dateStr||''}${r.payMethod?(' · '+escapeHtml(r.payMethod)):''}</div>
+        </div>
+        ${lines}
+        <div class="receipt-total"><span>Разом</span><span>${fmtMoney(r.totalSum)}</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2><span class="num">3</span> Хто за що платив</h2>
+      <div class="assign-block">${assignRows}</div>
+    </div>
+  `;
+}
+
+function renderAssignRow(it){
+  const buyers = state.buyers;
+  const chips = buyers.map(b=>{
+    const active = it.buyerIds.includes(b.id);
+    return `<span class="chip ${active?'active':''}" onclick="toggleItemBuyer('${it.id}','${b.id}')">${escapeHtml(b.name)}</span>`;
+  }).join('');
+
+  let modeUi = '';
+  const multi = it.buyerIds.length > 1;
+  if(multi){
+    modeUi += `<div class="mode-toggle">
+      <button class="${it.mode==='equal'?'active':''}" onclick="setItemMode('${it.id}','equal')">Порівну</button>
+      <button class="${it.mode==='manual'&&it.manualType==='amount'?'active':''}" onclick="setItemMode('${it.id}','manual','amount')">Сума вручну</button>
+      <button class="${it.mode==='manual'&&it.manualType==='percent'?'active':''}" onclick="setItemMode('${it.id}','manual','percent')">% вручну</button>
+      <button class="${it.mode==='manual'&&it.manualType==='fraction'?'active':''}" onclick="setItemMode('${it.id}','manual','fraction')">Частками</button>
+    </div>`;
+    if(it.mode==='manual' && it.manualType==='fraction'){
+      const alloc = allocateItem(it);
+      const totalShares = it.buyerIds.reduce((a,bid)=>a+(parseFloat(it.manualValues[bid])||0),0);
+      modeUi += it.buyerIds.map(bid=>{
+        const b = buyers.find(x=>x.id===bid);
+        const val = it.manualValues[bid] ?? '';
+        const amt = alloc[bid] || 0;
+        return `<div class="manual-row">
+          <span class="label">${escapeHtml(b?b.name:'?')}</span>
+          <input type="number" step="1" min="0" value="${val}" oninput="setManualValue('${it.id}','${bid}',this.value)"> частк${val==1?'а':'и'}
+          <span style="color:var(--muted);">= ${fmtMoney(amt)}</span>
+        </div>`;
+      }).join('');
+      const ok = totalShares > 0;
+      modeUi += `<div class="remainder ${ok?'ok':'bad'}">${ok ? `Разом ${totalShares} частк${totalShares==1?'а':(totalShares<5&&Number.isInteger(totalShares)?'и':'')} — розподілено повністю ✓` : 'Вкажи хоча б одну частку більшу за 0'}</div>`;
+    } else if(it.mode==='manual'){
+      const unit = it.manualType==='percent' ? '%' : '₴';
+      const alloc = it.manualType==='percent' ? allocateItem(it) : null;
+      modeUi += it.buyerIds.map(bid=>{
+        const b = buyers.find(x=>x.id===bid);
+        const val = it.manualValues[bid] ?? '';
+        const amtHint = it.manualType==='percent' ? ` <span style="color:var(--muted);">= ${fmtMoney(alloc[bid]||0)}</span>` : '';
+        return `<div class="manual-row">
+          <span class="label">${escapeHtml(b?b.name:'?')}</span>
+          <input type="number" step="0.01" value="${val}" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
+        </div>`;
+      }).join('');
+      // remainder indicator
+      const total = it.manualType==='percent' ? 100 : it.sum;
+      const allocated = it.buyerIds.reduce((a,bid)=>a+(parseFloat(it.manualValues[bid])||0),0);
+      const remainder = Math.round((total - allocated)*100)/100;
+      const ok = Math.abs(remainder) < 0.01;
+      modeUi += `<div class="remainder ${ok?'ok':'bad'}">${ok ? 'Розподілено повністю ✓' : `Залишилось: ${it.manualType==='percent'?remainder.toFixed(2)+'%':fmtMoney(remainder)}`}</div>`;
+    }
+  }
+
+  const noBuyer = it.buyerIds.length===0;
+
+  return `
+    <div class="assign-row">
+      <div class="assign-item-name">
+        <span class="nm">${escapeHtml(it.name)}</span>
+        <span class="sub">${fmtMoney(it.sum)}</span>
+      </div>
+      <div class="assign-controls">
+        <div class="row">${chips}</div>
+        ${noBuyer ? '<div class="remainder bad" style="margin-top:8px;">Оберіть хоча б одного покупця</div>' : ''}
+        ${modeUi}
+      </div>
+    </div>
+  `;
+}
+
+function toggleItemBuyer(itemId, buyerId){
+  const it = state.receipt.items.find(i=>i.id===itemId);
+  if(!it) return;
+  if(it.buyerIds.includes(buyerId)){
+    it.buyerIds = it.buyerIds.filter(x=>x!==buyerId);
+    delete it.manualValues[buyerId];
+  }else{
+    it.buyerIds.push(buyerId);
+  }
+  if(it.buyerIds.length<=1) it.mode='equal';
+  renderReceipt();
+  renderResults();
+}
+function setItemMode(itemId, mode, manualType){
+  const it = state.receipt.items.find(i=>i.id===itemId);
+  if(!it) return;
+  const typeChanged = manualType && manualType !== it.manualType;
+  it.mode = mode;
+  if(manualType) it.manualType = manualType;
+  if(mode==='manual'){
+    if(typeChanged){
+      // switching between amount/percent/fraction: values on different scales, reseed cleanly
+      it.manualValues = {};
+    }
+    const n = it.buyerIds.length;
+    it.buyerIds.forEach(bid=>{
+      if(it.manualValues[bid]===undefined){
+        if(it.manualType==='percent') it.manualValues[bid] = Math.round((100/n)*100)/100;
+        else if(it.manualType==='fraction') it.manualValues[bid] = 1;
+        else it.manualValues[bid] = Math.round((it.sum/n)*100)/100;
+      }
+    });
+  }
+  renderReceipt();
+  renderResults();
+}
+function setManualValue(itemId, buyerId, value){
+  const it = state.receipt.items.find(i=>i.id===itemId);
+  if(!it) return;
+  it.manualValues[buyerId] = value;
+  renderResults();
+  // update just the remainder text without full re-render to keep focus
+  renderReceipt();
+  // restore focus is tricky in vanilla re-render; acceptable tradeoff for correctness
+}
+
+/* ---------- ALLOCATION LOGIC ---------- */
+function allocateItem(it){
+  // returns {buyerId: amount}
+  const result = {};
+  if(it.buyerIds.length===0) return result;
+  if(it.buyerIds.length===1){
+    result[it.buyerIds[0]] = it.sum;
+    return result;
+  }
+  if(it.mode==='equal'){
+    const n = it.buyerIds.length;
+    const base = Math.floor((it.sum/n)*100)/100;
+    let assigned = 0;
+    it.buyerIds.forEach((bid,idx)=>{
+      if(idx < n-1){ result[bid]=base; assigned+=base; }
+      else { result[bid]=Math.round((it.sum-assigned)*100)/100; }
+    });
+    return result;
+  }
+  // manual
+  if(it.manualType==='amount'){
+    it.buyerIds.forEach(bid=>{ result[bid] = parseFloat(it.manualValues[bid])||0; });
+  }else if(it.manualType==='percent'){
+    it.buyerIds.forEach(bid=>{
+      const pct = parseFloat(it.manualValues[bid])||0;
+      result[bid] = Math.round((it.sum*pct/100)*100)/100;
+    });
+  }else if(it.manualType==='fraction'){
+    const shares = it.buyerIds.map(bid=>parseFloat(it.manualValues[bid])||0);
+    const totalShares = shares.reduce((a,v)=>a+v,0);
+    if(totalShares<=0){
+      it.buyerIds.forEach(bid=>{ result[bid]=0; });
+    }else{
+      let assigned = 0;
+      it.buyerIds.forEach((bid,idx)=>{
+        const share = parseFloat(it.manualValues[bid])||0;
+        if(idx < it.buyerIds.length-1){
+          const amt = Math.round((it.sum*share/totalShares)*100)/100;
+          result[bid]=amt; assigned+=amt;
+        }else{
+          result[bid]=Math.round((it.sum-assigned)*100)/100;
+        }
+      });
+    }
+  }
+  return result;
+}
+
+/* ---------- RESULTS ---------- */
+function renderResults(){
+  const el = document.getElementById('resultsSection');
+  if(!state.receipt){ el.innerHTML=''; return; }
+  const totals = {};
+  state.buyers.forEach(b=> totals[b.id]=0);
+  let unassigned = 0;
+  let manualMismatch = false;
+
+  state.receipt.items.forEach(it=>{
+    const alloc = allocateItem(it);
+    const allocatedSum = Object.values(alloc).reduce((a,v)=>a+v,0);
+    Object.entries(alloc).forEach(([bid,amt])=>{ if(totals[bid]!==undefined) totals[bid]+=amt; });
+    if(it.buyerIds.length===0){
+      unassigned += it.sum;
+    }else if(it.mode==='manual'){
+      const expected = it.manualType==='percent' ? it.sum : it.sum;
+      if(Math.abs(allocatedSum - it.sum) > 0.02) manualMismatch = true;
+    }
+  });
+
+  const rows = state.buyers.map(b=>`
+    <div class="result-buyer">
+      <span class="name">${escapeHtml(b.name)}</span>
+      <span class="sum">${fmtMoney(totals[b.id]||0)}</span>
+    </div>
+  `).join('');
+
+  let warnings = '';
+  if(unassigned > 0.01){
+    warnings += `<div class="warn-banner">Не розподілено на сумму ${fmtMoney(unassigned)} — деякі позиції без покупця.</div>`;
+  }
+  if(manualMismatch){
+    warnings += `<div class="warn-banner">В одній або кількох позиціях ручний розподіл не збігається з сумою позиції — перевір поле "Залишилось".</div>`;
+  }
+
+  el.innerHTML = `
+    <div class="card">
+      <h2><span class="num">4</span> Підсумок по покупцях</h2>
+      ${warnings}
+      <div class="result-grid">${rows}</div>
+      <div class="toolbar">
+        <button class="btn-primary" onclick="saveToHistory()">Зберегти чек в історію</button>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- HISTORY ---------- */
+function saveToHistory(){
+  if(!state.receipt) return;
+  const totals = {};
+  state.buyers.forEach(b=> totals[b.id]=0);
+  state.receipt.items.forEach(it=>{
+    const alloc = allocateItem(it);
+    Object.entries(alloc).forEach(([bid,amt])=>{ if(totals[bid]!==undefined) totals[bid]+=amt; });
+  });
+  const buyerNames = {};
+  state.buyers.forEach(b=> buyerNames[b.id]=b.name);
+  state.history.push({
+    id: uid('h'),
+    fileName: state.receipt.fileName,
+    dateStr: state.receipt.dateStr,
+    checkNo: state.receipt.checkNo,
+    totalSum: state.receipt.totalSum,
+    items: JSON.parse(JSON.stringify(state.receipt.items)),
+    buyerNames,
+    totals: state.buyers.map(b=>({buyerId:b.id, name:b.name, sum: totals[b.id]||0}))
+  });
+  state.receipt = null;
+  document.getElementById('fileInput').value = '';
+  renderReceipt();
+  renderResults();
+  renderHistory();
+}
+function removeHistoryItem(id){
+  state.history = state.history.filter(h=>h.id!==id);
+  expandedHistory.delete(id);
+  renderHistory();
+}
+function reopenHistoryItem(id){
+  const h = state.history.find(x=>x.id===id);
+  if(!h) return;
+  if(!Array.isArray(h.items) || h.items.length===0){
+    alert('Для цього чека не збереглася деталізація позицій (старий формат файлу) — редагувати неможливо, тільки перегляд.');
+    return;
+  }
+  if(state.receipt){
+    const ok = confirm('Зараз у роботі вже є інший чек, ще не збережений в історію. Якщо продовжиш — його прогрес розподілу буде втрачено (сам чек не пропаде, зможеш завантажити його XML ще раз). Відкрити чек з історії замість нього?');
+    if(!ok) return;
+  }
+  state.receipt = {
+    fileName: h.fileName,
+    items: JSON.parse(JSON.stringify(h.items)),
+    totalSum: h.totalSum,
+    checkNo: h.checkNo,
+    dateStr: h.dateStr,
+    payMethod: h.payMethod || ''
+  };
+  state.history = state.history.filter(x=>x.id!==id);
+  expandedHistory.delete(id);
+  renderReceipt();
+  renderResults();
+  renderHistory();
+  const target = document.getElementById('receiptSection');
+  if(target.scrollIntoView) target.scrollIntoView({behavior:'smooth', block:'start'});
+}
+const expandedHistory = new Set();
+function toggleHistoryDetail(id){
+  if(expandedHistory.has(id)) expandedHistory.delete(id);
+  else expandedHistory.add(id);
+  renderHistory();
+}
+function describeAllocation(it, buyerNames){
+  if(!it.buyerIds || it.buyerIds.length===0) return '<span style="color:var(--warn);">не розподілено</span>';
+  const alloc = allocateItem(it);
+  let modeLabel = '';
+  if(it.buyerIds.length>1){
+    if(it.mode==='equal') modeLabel = ' · порівну';
+    else if(it.manualType==='percent') modeLabel = ' · за відсотками';
+    else if(it.manualType==='fraction') modeLabel = ' · частками';
+    else modeLabel = ' · суми вручну';
+  }
+  return it.buyerIds.map(bid=>`${escapeHtml((buyerNames&&buyerNames[bid])||'?')}: ${fmtMoney(alloc[bid]||0)}`).join(', ') + modeLabel;
+}
+function renderHistory(){
+  const el = document.getElementById('historyList');
+  if(state.history.length===0){
+    el.innerHTML = '<div class="empty">Ще немає збережених чеків</div>';
+    return;
+  }
+  const grand = {};
+  state.buyers.forEach(b=> grand[b.id]=0);
+  state.history.forEach(h=>{
+    h.totals.forEach(t=>{ if(grand[t.buyerId]!==undefined) grand[t.buyerId]+=t.sum; });
+  });
+
+  const items = state.history.map(h=>{
+    const expanded = expandedHistory.has(h.id);
+    const hasDetail = Array.isArray(h.items) && h.items.length>0;
+    const detailRows = hasDetail ? h.items.map(it=>`
+      <div class="rline" style="font-family:'Inter',sans-serif;">
+        <span class="r-name">${escapeHtml(it.name)}</span>
+        <span class="r-sum" style="font-weight:400;font-size:0.8rem;color:var(--ink-soft);">${describeAllocation(it, h.buyerNames)}</span>
+        <span class="r-sum">${fmtMoney(it.sum)}</span>
+      </div>
+    `).join('') : '<div class="empty" style="padding:10px;">Деталі позицій не збереглися для цього чека (старий формат файлу)</div>';
+
+    return `
+    <div class="history-item" style="flex-direction:column;align-items:stretch;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div>${escapeHtml(h.fileName)} ${h.checkNo?('· №'+h.checkNo):''}</div>
+          <div class="hf">${h.dateStr||''} · ${fmtMoney(h.totalSum)} · ${h.totals.filter(t=>t.sum>0.001).map(t=>`${escapeHtml(t.name)}: ${fmtMoney(t.sum)}`).join(', ')}</div>
+        </div>
+        <div class="row" style="gap:6px;">
+          <button class="btn-primary" onclick="reopenHistoryItem('${h.id}')">✎ Редагувати</button>
+          <button class="btn-ghost" onclick="toggleHistoryDetail('${h.id}')">${expanded?'Сховати':'Деталі'}</button>
+          <button class="btn-danger" onclick="removeHistoryItem('${h.id}')">✕</button>
+        </div>
+      </div>
+      ${expanded ? `<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px;">${detailRows}</div>` : ''}
+    </div>
+  `;
+  }).join('');
+
+  const grandRows = state.buyers.map(b=>`
+    <div class="result-buyer">
+      <span class="name">${escapeHtml(b.name)}</span>
+      <span class="sum">${fmtMoney(grand[b.id]||0)}</span>
+    </div>
+  `).join('');
+
+  el.innerHTML = items + (state.history.length>1 ? `
+    <div style="margin-top:16px;">
+      <div style="font-family:'Fraunces',serif;font-weight:600;margin-bottom:8px;">Разом по всіх чеках</div>
+      <div class="result-grid">${grandRows}</div>
+    </div>` : '');
+}
+
+/* ---------- EXPORT / IMPORT ---------- */
+function exportState(){
+  const data = JSON.stringify(state, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chek-rozklad-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function importState(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      const data = JSON.parse(e.target.result);
+      state = data;
+      renderBuyers();
+      renderReceipt();
+      renderResults();
+      renderHistory();
+    }catch(err){
+      alert('Не вдалося прочитати файл: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// drag & drop support
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.style.borderColor='var(--accent)'; });
+zone.addEventListener('dragleave', ()=>{ zone.style.borderColor='var(--line)'; });
+zone.addEventListener('drop', e=>{
+  e.preventDefault();
+  zone.style.borderColor='var(--line)';
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+renderBuyers();
+renderHistory();
+</script>
+</body>
+</html>
