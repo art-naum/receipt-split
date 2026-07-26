@@ -9,7 +9,6 @@
 <style>
   :root{
     --paper:#0f1420;
-    --card:#171e2d;
     --field:#1d2536;
     --ink:#eef1f6;
     --ink-soft:#c0c8d6;
@@ -42,7 +41,19 @@
   }
   .subtitle{color:var(--muted);font-size:0.95rem;margin-bottom:28px;}
   .card{
-    background:var(--card);
+    background:#f4f7fb;
+    --ink:#141b28;
+    --ink-soft:#3d4759;
+    --muted:#68738a;
+    --line:#dbe2ec;
+    --field:#ffffff;
+    --accent-soft:#e3edfa;
+    --accent-dark:#1c5f9c;
+    --warn-soft:#faf0dd;
+    --danger-soft:#fbe6e1;
+    --warn:#9a6414;
+    --danger:#a53423;
+    color:var(--ink);
     border-radius:var(--radius);
     border:1px solid var(--line);
     padding:22px 24px;
@@ -90,9 +101,9 @@
   .btn-primary{background:var(--accent);color:#0c1420;}
   .btn-primary:hover{background:var(--accent-dark);}
   .btn-ghost{background:var(--accent-soft);color:var(--accent-dark);}
-  .btn-ghost:hover{background:#1b3350;}
+  .btn-ghost:hover{background:#cfe1f6;}
   .btn-danger{background:var(--danger-soft);color:var(--danger);}
-  .btn-danger:hover{background:#472923;}
+  .btn-danger:hover{background:#f6d2c8;}
   .chip{
     display:inline-flex;align-items:center;gap:6px;
     padding:6px 12px;
