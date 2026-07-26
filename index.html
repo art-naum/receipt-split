@@ -434,7 +434,11 @@ function parseReceiptXml(xmlText, fileName){
 
   // fiscal / register details
   const fn = (datEl && datEl.getAttribute('FN')) || (eEl && eEl.getAttribute('FN')) || '';
-  const tn = datEl ? datEl.getAttribute('TN') : '';   // ІД продавця
+  const tnRaw = datEl ? datEl.getAttribute('TN') : '';
+  const tnDigits = tnRaw ? (tnRaw.match(/\d+/g)||[]).join('') : '';
+  // Some PRRO models encode TN as a 12-digit string: 7-digit ID + 4-digit branch/location code + 1-digit checksum.
+  // The meaningful seller ID there is the first 7 digits plus the trailing checksum digit.
+  const tn = tnDigits.length===12 ? (tnDigits.slice(0,7) + tnDigits.slice(-1)) : tnDigits;   // ІД продавця, лише цифри
   const zn = datEl ? datEl.getAttribute('ZN') : '';
   const docNumber = datEl ? datEl.getAttribute('DI') : '';
   const shiftSerial = eEl ? eEl.getAttribute('SE') : '';
@@ -460,13 +464,25 @@ function parseReceiptXml(xmlText, fileName){
     if(raw===null || raw===undefined || raw==='') return '';
     return raw.includes('.') ? parseFloat(raw).toFixed(2) : (parseInt(raw,10)/100).toFixed(2);
   }
-  const taxGroups = eEl ? Array.from(eEl.querySelectorAll(':scope > TX')).map(tx=>({
-    group: tx.getAttribute('TX') || '',
-    rate: parseRate(tx.getAttribute('TXPR')),
-    taxableSum: parseInt(tx.getAttribute('TXSM')||'0',10)/100,
-    discountSum: parseInt(tx.getAttribute('DTSM')||'0',10)/100,
-    discountRate: parseRate(tx.getAttribute('DTPR'))
-  })) : [];
+  function taxGroupFromNode(node){
+    return {
+      group: node.getAttribute('TX') || '',
+      rate: parseRate(node.getAttribute('TXPR')),
+      taxableSum: parseInt(node.getAttribute('TXSM')||'0',10)/100,
+      discountSum: parseInt(node.getAttribute('DTSM')||'0',10)/100,
+      discountRate: parseRate(node.getAttribute('DTPR'))
+    };
+  }
+  let taxGroups = [];
+  if(eEl){
+    const txChildren = Array.from(eEl.querySelectorAll(':scope > TX'));
+    if(txChildren.length>0){
+      taxGroups = txChildren.map(taxGroupFromNode);
+    }else if(eEl.getAttribute('TX')){
+      // some PRRO generators put the (single) tax group's attributes directly on <E> itself
+      taxGroups = [taxGroupFromNode(eEl)];
+    }
+  }
 
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod,
@@ -515,10 +531,15 @@ function renderReceipt(){
   `;
 }
 
+function ukGroupLetter(groupNum){
+  const alphabet = ['А','Б','В','Г','Ґ','Д','Е','Є','Ж','З','И','І','Ї','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Х','Ц','Ч','Ш','Щ','Ь','Ю','Я'];
+  const idx = parseInt(groupNum,10) - 1;
+  return (idx>=0 && alphabet[idx]) ? alphabet[idx] : groupNum;
+}
 function renderReceiptDetails(r){
   const rows = [];
   if(r.fn) rows.push(['ФН ПРРО', r.fn]);
-  if(r.tn) rows.push(['ІД (ПН) продавця', r.tn]);
+  if(r.tn) rows.push(['ІД продавця', r.tn]);
   if(r.zn) rows.push(['Заводський номер', r.zn]);
   if(r.docNumber) rows.push(['№ документа', r.docNumber]);
   if(r.shiftSerial) rows.push(['Серійний номер', r.shiftSerial]);
@@ -542,12 +563,20 @@ function renderReceiptDetails(r){
 
   const taxHtml = (r.taxGroups && r.taxGroups.length>0) ? `
     <div class="detail-subhead">Податкові групи</div>
-    ${r.taxGroups.map(tx=>`
-      <div class="detail-row">
-        <span class="detail-label">Група ${escapeHtml(tx.group)}${tx.rate?(' · ставка '+escapeHtml(tx.rate)+'%'):''}</span>
-        <span class="detail-val">${fmtMoney(tx.taxableSum)}${tx.discountSum>0?` <span style="color:var(--muted);">(знижка ${fmtMoney(tx.discountSum)})</span>`:''}</span>
-      </div>
-    `).join('')}
+    ${r.taxGroups.map(tx=>{
+      const letter = ukGroupLetter(tx.group);
+      const vatLine = `
+        <div class="detail-row">
+          <span class="detail-label">ПДВ ${escapeHtml(letter)}${tx.rate?(' · ставка '+escapeHtml(tx.rate)+'%'):''}</span>
+          <span class="detail-val">${fmtMoney(tx.taxableSum)}</span>
+        </div>`;
+      const exciseLine = (tx.discountSum>0) ? `
+        <div class="detail-row">
+          <span class="detail-label">Акциз ${escapeHtml(letter)}${tx.discountRate?(' · ставка '+escapeHtml(tx.discountRate)+'%'):''}</span>
+          <span class="detail-val">${fmtMoney(tx.discountSum)}</span>
+        </div>` : '';
+      return vatLine + exciseLine;
+    }).join('')}
   ` : '';
 
   if(rows.length===0 && !taxHtml) return '';
