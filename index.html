@@ -8,19 +8,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#eef2ec;
-    --card:#ffffff;
-    --ink:#132018;
-    --ink-soft:#3c463f;
-    --muted:#6d786f;
-    --line:#d8ded4;
-    --accent:#1f7a5c;
-    --accent-dark:#155b44;
-    --accent-soft:#e2f0e9;
-    --warn:#c98a2e;
-    --warn-soft:#fbf0dc;
-    --danger:#b3432f;
-    --danger-soft:#fbe7e2;
+    --paper:#121613;
+    --card:#1a2019;
+    --field:#20271f;
+    --ink:#eef2ec;
+    --ink-soft:#c3cbc0;
+    --muted:#8a9488;
+    --line:#2c352a;
+    --accent:#34a373;
+    --accent-dark:#6fdba3;
+    --accent-soft:#173226;
+    --warn:#e0ab52;
+    --warn-soft:#332a16;
+    --danger:#e5786a;
+    --danger-soft:#33201c;
     --radius:14px;
   }
   *{box-sizing:border-box;}
@@ -71,7 +72,7 @@
     padding:8px 10px;
     border:1px solid var(--line);
     border-radius:8px;
-    background:#fff;
+    background:var(--field);
     color:var(--ink);
   }
   input[type=number]{width:90px;}
@@ -86,18 +87,18 @@
     transition:transform .06s ease, background .15s ease;
   }
   button:active{transform:scale(0.97);}
-  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary{background:var(--accent);color:#0d1210;}
   .btn-primary:hover{background:var(--accent-dark);}
   .btn-ghost{background:var(--accent-soft);color:var(--accent-dark);}
-  .btn-ghost:hover{background:#d3e9dd;}
+  .btn-ghost:hover{background:#1f4534;}
   .btn-danger{background:var(--danger-soft);color:var(--danger);}
-  .btn-danger:hover{background:#f6d5cc;}
+  .btn-danger:hover{background:#472923;}
   .chip{
     display:inline-flex;align-items:center;gap:6px;
     padding:6px 12px;
     border-radius:999px;
     border:1.5px solid var(--line);
-    background:#fff;
+    background:var(--field);
     font-size:0.85rem;
     font-weight:500;
     cursor:pointer;
@@ -109,7 +110,7 @@
   .chip.active{
     background:var(--accent);
     border-color:var(--accent);
-    color:#fff;
+    color:#0d1210;
   }
   .chip .del{opacity:.6;font-weight:700;}
   .chip .del:hover{opacity:1;}
@@ -138,9 +139,15 @@
 
   /* --- receipt strip --- */
   .receipt-outer{
-    background:#fff;
+    --ink:#1a2018;
+    --ink-soft:#3c463f;
+    --muted:#83897f;
+    --line:#ddd8c8;
+    --accent-dark:#155b44;
+    background:#fdfbf6;
+    color:var(--ink);
     border-radius:2px;
-    box-shadow:0 6px 24px rgba(19,32,24,0.10);
+    box-shadow:0 10px 32px rgba(0,0,0,0.45);
     padding:26px 24px 6px;
     font-family:'JetBrains Mono',monospace;
     position:relative;
@@ -166,14 +173,34 @@
   .rline:last-child{border-bottom:none;}
   .rline .r-name{color:var(--ink);font-weight:500;flex:1;min-width:0;}
   .rline .r-qty{color:var(--muted);font-size:0.75rem;white-space:nowrap;}
-  .rline .r-sum{font-weight:600;white-space:nowrap;}
+  .rline .r-sum{font-weight:700;color:var(--ink);white-space:nowrap;}
   .rline .r-disc{color:var(--accent-dark);font-size:0.7rem;}
   .receipt-total{
     display:flex;justify-content:space-between;
     padding:14px 0 20px;
-    font-size:0.95rem;font-weight:700;
+    font-size:1.05rem;font-weight:800;
+    color:var(--ink);
     border-top:2px solid var(--ink);
     margin-top:4px;
+  }
+  details.receipt-details{
+    margin-top:14px;font-family:'Inter',sans-serif;font-size:0.85rem;
+  }
+  details.receipt-details summary{
+    cursor:pointer;color:var(--accent-dark);font-weight:600;
+  }
+  .detail-grid{margin-top:10px;}
+  .detail-row{
+    display:flex;justify-content:space-between;gap:12px;
+    padding:6px 0;border-bottom:1px dashed var(--line);
+    font-family:'JetBrains Mono',monospace;font-size:0.8rem;
+  }
+  .detail-row:last-child{border-bottom:none;}
+  .detail-label{color:var(--muted);}
+  .detail-val{color:var(--ink);font-weight:500;text-align:right;word-break:break-all;}
+  .detail-subhead{
+    font-family:'Inter',sans-serif;font-weight:600;color:var(--ink-soft);
+    margin:14px 0 4px;font-size:0.82rem;
   }
 
   /* --- assignment block --- */
@@ -195,9 +222,9 @@
   .assign-controls{flex:2 1 340px;min-width:280px;}
   .mode-toggle{display:flex;gap:6px;margin-top:8px;}
   .mode-toggle button{
-    background:#f2f4f1;color:var(--ink-soft);font-size:0.75rem;padding:6px 10px;
+    background:var(--field);color:var(--ink-soft);font-size:0.75rem;padding:6px 10px;
   }
-  .mode-toggle button.active{background:var(--accent);color:#fff;}
+  .mode-toggle button.active{background:var(--accent);color:#0d1210;}
   .manual-row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:0.82rem;}
   .manual-row .label{min-width:110px;color:var(--ink-soft);}
   .remainder{
@@ -352,6 +379,7 @@ function parseReceiptXml(xmlText, fileName){
   if(doc.querySelector('parsererror')) throw new Error('це не коректний XML');
   const cEl = doc.querySelector('C');
   if(!cEl) throw new Error('не знайдено блок чеку <C>');
+  const datEl = doc.querySelector('DAT');
   const products = Array.from(cEl.querySelectorAll(':scope > P'));
   const discounts = Array.from(cEl.querySelectorAll(':scope > D'));
   const mEl = cEl.querySelector(':scope > M');
@@ -385,11 +413,44 @@ function parseReceiptXml(xmlText, fileName){
   const tsRaw = (eEl && eEl.getAttribute('TS')) || (doc.querySelector('TS') ? doc.querySelector('TS').textContent : '');
   let dateStr = '';
   if(tsRaw && tsRaw.length>=14){
-    const y=tsRaw.slice(0,4), mo=tsRaw.slice(4,6), d=tsRaw.slice(6,8), h=tsRaw.slice(8,10), mi=tsRaw.slice(10,12);
-    dateStr = `${d}.${mo}.${y} ${h}:${mi}`;
+    const y=tsRaw.slice(0,4), mo=tsRaw.slice(4,6), d=tsRaw.slice(6,8), h=tsRaw.slice(8,10), mi=tsRaw.slice(10,12), s=tsRaw.slice(12,14);
+    dateStr = `${d}.${mo}.${y} ${h}:${mi}:${s}`;
   }
 
-  return {fileName, items, totalSum, checkNo, dateStr, payMethod};
+  // fiscal / register details
+  const fn = (datEl && datEl.getAttribute('FN')) || (eEl && eEl.getAttribute('FN')) || '';
+  const tn = datEl ? datEl.getAttribute('TN') : '';
+  const zn = datEl ? datEl.getAttribute('ZN') : '';
+  const docNumber = datEl ? datEl.getAttribute('DI') : '';
+  const shiftSerial = eEl ? eEl.getAttribute('SE') : '';
+
+  // card / payment details
+  let payment = null;
+  if(mEl){
+    payment = {
+      label: mEl.getAttribute('NM') || '',
+      system: mEl.getAttribute('PSNM') || '',
+      cardMasked: mEl.getAttribute('PD') || '',
+      authCode: mEl.getAttribute('PE') || '',
+      rrn: mEl.getAttribute('RRN') || '',
+      operation: mEl.getAttribute('PC') || '',
+      terminal: mEl.getAttribute('PB') || mEl.getAttribute('PA') || ''
+    };
+  }
+
+  // tax groups breakdown (from <E><TX .../></E>)
+  const taxGroups = eEl ? Array.from(eEl.querySelectorAll(':scope > TX')).map(tx=>({
+    group: tx.getAttribute('TX') || '',
+    rate: tx.getAttribute('TXPR') || '',
+    taxableSum: parseInt(tx.getAttribute('TXSM')||'0',10)/100,
+    discountSum: parseInt(tx.getAttribute('DTSM')||'0',10)/100,
+    discountRate: tx.getAttribute('DTPR') || ''
+  })) : [];
+
+  return {
+    fileName, items, totalSum, checkNo, dateStr, payMethod,
+    fn, tn, zn, docNumber, shiftSerial, payment, taxGroups
+  };
 }
 
 /* ---------- RECEIPT + ASSIGNMENT RENDERING ---------- */
@@ -411,6 +472,7 @@ function renderReceipt(){
   `).join('');
 
   const assignRows = r.items.map(it=>renderAssignRow(it)).join('');
+  const detailsBlock = renderReceiptDetails(r);
 
   el.innerHTML = `
     <div class="card">
@@ -423,11 +485,60 @@ function renderReceipt(){
         ${lines}
         <div class="receipt-total"><span>Разом</span><span>${fmtMoney(r.totalSum)}</span></div>
       </div>
+      ${detailsBlock}
     </div>
     <div class="card">
       <h2><span class="num">3</span> Хто за що платив</h2>
       <div class="assign-block">${assignRows}</div>
     </div>
+  `;
+}
+
+function renderReceiptDetails(r){
+  const rows = [];
+  if(r.fn) rows.push(['ФН ПРРО', r.fn]);
+  if(r.tn) rows.push(['Податковий номер каси', r.tn]);
+  if(r.zn) rows.push(['Заводський номер', r.zn]);
+  if(r.docNumber) rows.push(['№ документа', r.docNumber]);
+  if(r.shiftSerial) rows.push(['Серійний номер', r.shiftSerial]);
+  if(r.checkNo) rows.push(['№ чека', r.checkNo]);
+  if(r.dateStr) rows.push(['Дата та час', r.dateStr]);
+
+  if(r.payment){
+    const p = r.payment;
+    if(p.label) rows.push(['Спосіб оплати', p.label]);
+    if(p.system) rows.push(['Платіжна система', p.system]);
+    if(p.operation) rows.push(['Вид операції', p.operation]);
+    if(p.cardMasked) rows.push(['Картка', p.cardMasked]);
+    if(p.authCode) rows.push(['Код авторизації', p.authCode]);
+    if(p.rrn) rows.push(['RRN', p.rrn]);
+    if(p.terminal) rows.push(['Термінал', p.terminal]);
+  }
+
+  const rowsHtml = rows.map(([label,val])=>`
+    <div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-val">${escapeHtml(val)}</span></div>
+  `).join('');
+
+  const taxHtml = (r.taxGroups && r.taxGroups.length>0) ? `
+    <div class="detail-subhead">Податкові групи</div>
+    ${r.taxGroups.map(tx=>`
+      <div class="detail-row">
+        <span class="detail-label">Група ${escapeHtml(tx.group)}${tx.rate?(' · ставка '+escapeHtml(tx.rate)+'%'):''}</span>
+        <span class="detail-val">${fmtMoney(tx.taxableSum)}${tx.discountSum>0?` <span style="color:var(--muted);">(знижка ${fmtMoney(tx.discountSum)})</span>`:''}</span>
+      </div>
+    `).join('')}
+  ` : '';
+
+  if(rows.length===0 && !taxHtml) return '';
+
+  return `
+    <details class="receipt-details">
+      <summary>Усі деталі чека</summary>
+      <div class="detail-grid">
+        ${rowsHtml}
+        ${taxHtml}
+      </div>
+    </details>
   `;
 }
 
@@ -781,7 +892,10 @@ function exportState(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'chek-rozklad-' + new Date().toISOString().slice(0,10) + '.json';
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+  a.download = `receipt-split-${stamp}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
