@@ -420,7 +420,8 @@ function parseReceiptXml(xmlText, fileName){
 
   const totalSum = mEl ? parseInt(mEl.getAttribute('SM')||'0',10)/100 : items.reduce((a,i)=>a+i.sum,0);
   const payMethod = mEl ? (mEl.getAttribute('NM') || mEl.getAttribute('PSNM') || '') : '';
-  const checkNo = eEl ? eEl.getAttribute('NO') : '';
+  const macEl = doc.querySelector('MAC');
+  const checkNo = (macEl && macEl.getAttribute('ID')) || (eEl ? eEl.getAttribute('NO') : '') || '';
   const tsRaw = (eEl && eEl.getAttribute('TS')) || (doc.querySelector('TS') ? doc.querySelector('TS').textContent : '');
   let dateStr = '';
   if(tsRaw && tsRaw.length>=14){
@@ -430,7 +431,7 @@ function parseReceiptXml(xmlText, fileName){
 
   // fiscal / register details
   const fn = (datEl && datEl.getAttribute('FN')) || (eEl && eEl.getAttribute('FN')) || '';
-  const tn = datEl ? datEl.getAttribute('TN') : '';
+  const tn = datEl ? datEl.getAttribute('TN') : '';   // ІД продавця
   const zn = datEl ? datEl.getAttribute('ZN') : '';
   const docNumber = datEl ? datEl.getAttribute('DI') : '';
   const shiftSerial = eEl ? eEl.getAttribute('SE') : '';
@@ -450,12 +451,18 @@ function parseReceiptXml(xmlText, fileName){
   }
 
   // tax groups breakdown (from <E><TX .../></E>)
+  // Rate attributes come in two flavours depending on the PRRO/generator:
+  // already-formatted percent strings like "20.00", or scaled integers like "700" meaning 7.00%.
+  function parseRate(raw){
+    if(raw===null || raw===undefined || raw==='') return '';
+    return raw.includes('.') ? parseFloat(raw).toFixed(2) : (parseInt(raw,10)/100).toFixed(2);
+  }
   const taxGroups = eEl ? Array.from(eEl.querySelectorAll(':scope > TX')).map(tx=>({
     group: tx.getAttribute('TX') || '',
-    rate: tx.getAttribute('TXPR') || '',
+    rate: parseRate(tx.getAttribute('TXPR')),
     taxableSum: parseInt(tx.getAttribute('TXSM')||'0',10)/100,
     discountSum: parseInt(tx.getAttribute('DTSM')||'0',10)/100,
-    discountRate: tx.getAttribute('DTPR') || ''
+    discountRate: parseRate(tx.getAttribute('DTPR'))
   })) : [];
 
   return {
@@ -508,7 +515,7 @@ function renderReceipt(){
 function renderReceiptDetails(r){
   const rows = [];
   if(r.fn) rows.push(['ФН ПРРО', r.fn]);
-  if(r.tn) rows.push(['Податковий номер каси', r.tn]);
+  if(r.tn) rows.push(['ІД продавця', r.tn]);
   if(r.zn) rows.push(['Заводський номер', r.zn]);
   if(r.docNumber) rows.push(['№ документа', r.docNumber]);
   if(r.shiftSerial) rows.push(['Серійний номер', r.shiftSerial]);
