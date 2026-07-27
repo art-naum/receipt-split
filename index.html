@@ -188,7 +188,7 @@
   .rline .r-disc{color:var(--accent-dark);font-size:0.7rem;}
   .receipt-total{
     display:flex;justify-content:space-between;
-    padding:14px 0 20px;
+    padding:15px 0 35px;
     font-size:1.05rem;font-weight:800;
     color:var(--ink);
     border-top:2px solid var(--ink);
@@ -258,7 +258,29 @@
     border-radius:10px;padding:12px 16px;
   }
   .result-buyer .name{font-weight:600;font-family:'Fraunces',serif;font-size:1.02rem;}
+  .result-buyer .name.chip{
+    font-family:'Inter',sans-serif;
+    font-size:0.85rem;
+    font-weight:500;
+    background:var(--field);
+  }
   .result-buyer .sum{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent-dark);font-size:1.05rem;}
+  .result-buyer-wrap{margin-bottom:0;}
+  .buyer-detail{
+    margin:6px 2px 0;
+    padding:4px 14px 8px;
+    border-left:2px solid var(--line);
+  }
+  .buyer-detail-row{
+    display:flex;justify-content:space-between;gap:10px;
+    padding:7px 0;
+    border-bottom:1px dashed var(--line);
+    font-size:0.82rem;
+  }
+  .buyer-detail-row:last-child{border-bottom:none;}
+  .bd-name{color:var(--ink);flex:1 1 auto;min-width:0;}
+  .bd-share{color:var(--muted);font-size:0.76rem;white-space:nowrap;}
+  .bd-amt{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--ink);white-space:nowrap;}
   .result-total{
     background:var(--accent-soft);
     border:1.5px solid var(--accent);
@@ -295,7 +317,7 @@
     <h2><span class="num">1</span> Покупці</h2>
     <div class="buyer-list" id="buyerList"></div>
     <div class="row">
-      <input type="text" id="newBuyerName" placeholder="Ім'я покупця" style="min-width:200px;">
+      <input type="text" id="newBuyerName" placeholder="Ім'я покупця" style="min-width:200px;" onkeydown="if(event.key==='Enter'){ addBuyer(); }">
       <button class="btn-primary" onclick="addBuyer()">Додати</button>
     </div>
   </div>
@@ -363,6 +385,7 @@ function addBuyer(){
   input.value='';
   renderBuyers();
   if(state.receipt) renderReceipt();
+  input.focus();
 }
 function removeBuyer(id){
   state.buyers = state.buyers.filter(b=>b.id!==id);
@@ -561,7 +584,7 @@ function renderReceipt(){
           <div class="meta">${r.dateStr||''}${r.payMethod?(' · '+escapeHtml(r.payMethod)):''}</div>
         </div>
         ${lines}
-        <div class="receipt-total"><span>Разом</span><span>${fmtMoney(r.totalSum)}</span></div>
+        <div class="receipt-total"><span>РАЗОМ</span><span>${fmtMoney(r.totalSum)}</span></div>
       </div>
       ${detailsBlock}
     </div>
@@ -650,12 +673,12 @@ function renderAssignRow(it){
         const amt = alloc[bid] || 0;
         return `<div class="manual-row">
           <span class="label">${escapeHtml(b?b.name:'?')}</span>
-          <input type="number" step="1" min="0" value="${val}" oninput="setManualValue('${it.id}','${bid}',this.value)"> частк${val==1?'а':'и'}
+          <input type="number" step="1" min="0" value="${val}" id="mv_${it.id}_${bid}" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${pluralChastka(val)}
           <span style="color:var(--muted);">= ${fmtMoney(amt)}</span>
         </div>`;
       }).join('');
       const ok = totalShares > 0;
-      modeUi += `<div class="remainder ${ok?'ok':'bad'}">${ok ? `Разом ${totalShares} частк${totalShares==1?'а':(totalShares<5&&Number.isInteger(totalShares)?'и':'')} — розподілено повністю ✓` : 'Вкажи хоча б одну частку більшу за 0'}</div>`;
+      modeUi += `<div class="remainder ${ok?'ok':'bad'}">${ok ? `Разом ${totalShares} ${pluralChastka(totalShares)} — розподілено повністю ✓` : 'Вкажи хоча б одну частку більшу за 0'}</div>`;
     } else if(it.mode==='manual'){
       const unit = it.manualType==='percent' ? '%' : '₴';
       const alloc = it.manualType==='percent' ? allocateItem(it) : null;
@@ -665,7 +688,7 @@ function renderAssignRow(it){
         const amtHint = it.manualType==='percent' ? ` <span style="color:var(--muted);">= ${fmtMoney(alloc[bid]||0)}</span>` : '';
         return `<div class="manual-row">
           <span class="label">${escapeHtml(b?b.name:'?')}</span>
-          <input type="number" step="0.01" value="${val}" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
+          <input type="number" step="0.01" value="${val}" id="mv_${it.id}_${bid}" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
         </div>`;
       }).join('');
       // remainder indicator
@@ -734,10 +757,25 @@ function setManualValue(itemId, buyerId, value){
   const it = state.receipt.items.find(i=>i.id===itemId);
   if(!it) return;
   it.manualValues[buyerId] = value;
+
+  const fieldId = `mv_${itemId}_${buyerId}`;
+  const active = document.activeElement;
+  const wasFocused = active && active.id === fieldId;
+  const selStart = wasFocused ? active.selectionStart : null;
+  const selEnd = wasFocused ? active.selectionEnd : null;
+
   renderResults();
-  // update just the remainder text without full re-render to keep focus
   renderReceipt();
-  // restore focus is tricky in vanilla re-render; acceptable tradeoff for correctness
+
+  if(wasFocused){
+    const el = document.getElementById(fieldId);
+    if(el){
+      el.focus();
+      if(typeof selStart === 'number'){
+        try{ el.setSelectionRange(selStart, selEnd); }catch(e){}
+      }
+    }
+  }
 }
 
 /* ---------- ALLOCATION LOGIC ---------- */
@@ -789,6 +827,54 @@ function allocateItem(it){
 }
 
 /* ---------- RESULTS ---------- */
+const expandedBuyerDetails = new Set();
+function toggleBuyerDetail(bid){
+  if(expandedBuyerDetails.has(bid)) expandedBuyerDetails.delete(bid);
+  else expandedBuyerDetails.add(bid);
+  renderResults();
+}
+function pluralChastka(n){
+  n = Math.round(Math.abs(n));
+  const rem100 = n % 100;
+  const rem10 = n % 10;
+  if(rem100>=11 && rem100<=14) return 'часток';
+  if(rem10===1) return 'частка';
+  if(rem10>=2 && rem10<=4) return 'частки';
+  return 'часток';
+}
+function gcd(a,b){ a=Math.round(Math.abs(a)); b=Math.round(Math.abs(b)); return b===0 ? a : gcd(b, a%b); }
+function buyerItemBreakdown(bid){
+  if(!state.receipt) return [];
+  return state.receipt.items
+    .filter(it=>it.buyerIds.includes(bid))
+    .map(it=>{
+      const alloc = allocateItem(it);
+      const amount = alloc[bid]||0;
+      let shareLabel;
+      if(it.buyerIds.length<=1){
+        shareLabel = 'повністю';
+      }else if(it.mode==='equal'){
+        shareLabel = 'порівну';
+      }else if(it.manualType==='percent'){
+        const pct = parseFloat(it.manualValues[bid]) || 0;
+        const pctStr = Number.isInteger(pct) ? pct : pct.toFixed(2).replace(/\.?0+$/,'');
+        shareLabel = `${pctStr}% · за відсотками`;
+      }else if(it.manualType==='fraction'){
+        const share = parseFloat(it.manualValues[bid]) || 0;
+        const total = it.buyerIds.reduce((a,id)=>a+(parseFloat(it.manualValues[id])||0),0);
+        if(share>0 && total>0){
+          const g = gcd(share, total) || 1;
+          shareLabel = `${share/g}/${total/g} · частками`;
+        }else{
+          shareLabel = 'частками';
+        }
+      }else{
+        shareLabel = 'сума вручну';
+      }
+      return { name: it.name, amount, shareLabel };
+    });
+}
+
 function renderResults(){
   const el = document.getElementById('resultsSection');
   if(!state.receipt){ el.innerHTML=''; return; }
@@ -810,12 +896,32 @@ function renderResults(){
   });
 
   const grandTotal = Object.values(totals).reduce((a,v)=>a+v,0);
-  const rows = state.buyers.map(b=>`
-    <div class="result-buyer">
-      <span class="name">${escapeHtml(b.name)}</span>
-      <span class="sum">${fmtMoney(totals[b.id]||0)}</span>
-    </div>
-  `).join('') + `
+  const rows = state.buyers.map(b=>{
+    const expanded = expandedBuyerDetails.has(b.id);
+    const items = expanded ? buyerItemBreakdown(b.id) : [];
+    const detailHtml = expanded ? (
+      items.length>0 ? `
+        <div class="buyer-detail">
+          ${items.map(it=>`
+            <div class="buyer-detail-row">
+              <span class="bd-name">${escapeHtml(it.name)}</span>
+              <span class="bd-share">${escapeHtml(it.shareLabel)}</span>
+              <span class="bd-amt">${fmtMoney(it.amount)}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : `<div class="buyer-detail"><div class="empty" style="padding:10px;">Немає оплачених позицій</div></div>`
+    ) : '';
+    return `
+      <div class="result-buyer-wrap">
+        <div class="result-buyer">
+          <span class="name chip" onclick="toggleBuyerDetail('${b.id}')">${escapeHtml(b.name)}</span>
+          <span class="sum">${fmtMoney(totals[b.id]||0)}</span>
+        </div>
+        ${detailHtml}
+      </div>
+    `;
+  }).join('') + `
     <div class="result-buyer result-total">
       <span class="name">Разом</span>
       <span class="sum">${fmtMoney(grandTotal)}</span>
