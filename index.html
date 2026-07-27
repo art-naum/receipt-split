@@ -230,6 +230,7 @@
   }
   .assign-item-name .nm{font-weight:600;}
   .assign-item-name .sub{color:var(--muted);font-size:0.78rem;display:block;margin-top:2px;}
+  .assign-item-name .sub.r-disc{color:var(--accent-dark);}
   .assign-controls{flex:2 1 340px;min-width:280px;}
   .mode-toggle{display:flex;gap:6px;margin-top:8px;}
   .mode-toggle button{
@@ -244,6 +245,11 @@
   }
   .remainder.ok{background:var(--accent-soft);color:var(--accent-dark);}
   .remainder.bad{background:var(--warn-soft);color:var(--warn);}
+  .remainder-link{
+    cursor:pointer;
+    text-decoration:underline dotted;
+    text-underline-offset:2px;
+  }
   .warn-banner{
     background:var(--warn-soft);color:var(--warn);
     border-radius:10px;padding:10px 14px;font-size:0.85rem;font-weight:500;
@@ -317,7 +323,7 @@
     <h2><span class="num">1</span> Покупці</h2>
     <div class="buyer-list" id="buyerList"></div>
     <div class="row">
-      <input type="text" id="newBuyerName" placeholder="Ім'я покупця" style="min-width:200px;" onkeydown="if(event.key==='Enter'){ addBuyer(); }">
+      <input type="text" id="newBuyerName" placeholder="Ім'я покупця" style="min-width:200px;" onkeydown="if(event.key==='Enter'){ addBuyer(); }" oninput="capitalizeFirst(this)">
       <button class="btn-primary" onclick="addBuyer()">Додати</button>
     </div>
   </div>
@@ -377,6 +383,16 @@ function decodeXmlBuffer(buf){
 }
 
 /* ---------- BUYERS ---------- */
+function capitalizeFirst(inputEl){
+  const v = inputEl.value;
+  if(v.length===0) return;
+  const capped = v.charAt(0).toUpperCase() + v.slice(1);
+  if(capped !== v){
+    const start = inputEl.selectionStart, end = inputEl.selectionEnd;
+    inputEl.value = capped;
+    try{ inputEl.setSelectionRange(start, end); }catch(e){}
+  }
+}
 function addBuyer(){
   const input = document.getElementById('newBuyerName');
   const name = input.value.trim();
@@ -673,7 +689,7 @@ function renderAssignRow(it){
         const amt = alloc[bid] || 0;
         return `<div class="manual-row">
           <span class="label">${escapeHtml(b?b.name:'?')}</span>
-          <input type="number" step="1" min="0" value="${val}" id="mv_${it.id}_${bid}" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${pluralChastka(val)}
+          <input type="number" step="1" min="0" value="${val}" id="mv_${it.id}_${bid}" onfocus="setLastFocusedBuyer('${it.id}','${bid}')" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${pluralChastka(val)}
           <span style="color:var(--muted);">= ${fmtMoney(amt)}</span>
         </div>`;
       }).join('');
@@ -688,15 +704,26 @@ function renderAssignRow(it){
         const amtHint = it.manualType==='percent' ? ` <span style="color:var(--muted);">= ${fmtMoney(alloc[bid]||0)}</span>` : '';
         return `<div class="manual-row">
           <span class="label">${escapeHtml(b?b.name:'?')}</span>
-          <input type="number" step="0.01" value="${val}" id="mv_${it.id}_${bid}" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
+          <input type="number" step="0.01" value="${val}" id="mv_${it.id}_${bid}" onfocus="setLastFocusedBuyer('${it.id}','${bid}')" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
         </div>`;
       }).join('');
       // remainder indicator
       const total = it.manualType==='percent' ? 100 : it.sum;
       const allocated = it.buyerIds.reduce((a,bid)=>a+(parseFloat(it.manualValues[bid])||0),0);
       const remainder = Math.round((total - allocated)*100)/100;
-      const ok = Math.abs(remainder) < 0.01;
-      modeUi += `<div class="remainder ${ok?'ok':'bad'}">${ok ? 'Розподілено повністю ✓' : `Залишилось: ${it.manualType==='percent'?remainder.toFixed(2)+'%':fmtMoney(remainder)}`}</div>`;
+      const ok = Math.abs(remainder) < 0.001;
+      if(ok){
+        modeUi += `<div class="remainder ok">Розподілено повністю ✓</div>`;
+      }else{
+        const remainderDisplay = it.manualType==='percent' ? (remainder.toFixed(2)+'%') : fmtMoney(remainder);
+        const targetBid = (it.lastFocusedBuyer && it.buyerIds.includes(it.lastFocusedBuyer)) ? it.lastFocusedBuyer : it.buyerIds[0];
+        const current = parseFloat(it.manualValues[targetBid]) || 0;
+        const clickable = (current + remainder) >= -0.001;
+        const inner = clickable
+          ? `<span class="remainder-link" onmousedown="event.preventDefault()" onclick="addRemainderToFocused('${it.id}', ${remainder})">${remainderDisplay}</span>`
+          : remainderDisplay;
+        modeUi += `<div class="remainder bad">Залишилось: ${inner}</div>`;
+      }
     }
   }
 
@@ -706,7 +733,8 @@ function renderAssignRow(it){
     <div class="assign-row">
       <div class="assign-item-name">
         <span class="nm">${escapeHtml(it.name)}</span>
-        <span class="sub">${fmtMoney(it.sum)}</span>
+        <span class="sub">${fmtQty(it.qty)} × ${fmtMoney(it.price)} = <strong>${fmtMoney(it.sum)}</strong></span>
+        ${it.discount>0 ? `<span class="sub r-disc">знижка ${fmtMoney(it.discount)}</span>` : ''}
       </div>
       <div class="assign-controls">
         <div class="row">${chips}</div>
@@ -752,6 +780,24 @@ function setItemMode(itemId, mode, manualType){
   }
   renderReceipt();
   renderResults();
+}
+function setLastFocusedBuyer(itemId, bid){
+  const it = state.receipt.items.find(i=>i.id===itemId);
+  if(!it || it.lastFocusedBuyer === bid) return;
+  it.lastFocusedBuyer = bid;
+  renderReceipt();
+  const el = document.getElementById(`mv_${itemId}_${bid}`);
+  if(el) el.focus();
+}
+function addRemainderToFocused(itemId, remainderVal){
+  const it = state.receipt.items.find(i=>i.id===itemId);
+  if(!it) return;
+  const bid = (it.lastFocusedBuyer && it.buyerIds.includes(it.lastFocusedBuyer)) ? it.lastFocusedBuyer : it.buyerIds[0];
+  if(!bid) return;
+  const current = parseFloat(it.manualValues[bid]) || 0;
+  let next = Math.round((current + remainderVal)*100)/100;
+  if(next < 0) next = 0;
+  setManualValue(itemId, bid, next);
 }
 function setManualValue(itemId, buyerId, value){
   const it = state.receipt.items.find(i=>i.id===itemId);
