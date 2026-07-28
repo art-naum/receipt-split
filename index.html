@@ -451,6 +451,14 @@ async function handleFile(file){
 function parseReceiptXml(xmlText, fileName){
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
   if(doc.querySelector('parsererror')) throw new Error('це не коректний XML');
+  if(doc.querySelector('CHECKHEAD')){
+    return parseCheckSchema(doc, fileName);
+  }
+  return parseRqSchema(doc, fileName);
+}
+
+/* ---- Schema 1: <RQ><DAT><C>...</C></DAT></RQ> (compact vendor format) ---- */
+function parseRqSchema(doc, fileName){
   const cEl = doc.querySelector('C');
   if(!cEl) throw new Error('не знайдено блок чеку <C>');
   const datEl = doc.querySelector('DAT');
@@ -570,6 +578,101 @@ function parseReceiptXml(xmlText, fileName){
   };
 }
 
+/* ---- Schema 2: <CHECK><CHECKHEAD>...<CHECKBODY> (official ДПС check01.xsd) ---- */
+function parseCheckSchema(doc, fileName){
+  const head = doc.querySelector('CHECKHEAD');
+  const totalEl = doc.querySelector('CHECKTOTAL');
+  const payRow = doc.querySelector('CHECKPAY > ROW');
+  const paySysRow = payRow ? payRow.querySelector('PAYSYS > ROW') : null;
+  const taxRows = Array.from(doc.querySelectorAll('CHECKTAX > ROW'));
+  const bodyRows = Array.from(doc.querySelectorAll('CHECKBODY > ROW'));
+
+  function textOf(root, tag){
+    if(!root) return '';
+    const el = root.querySelector(tag);
+    return el ? el.textContent.trim() : '';
+  }
+  function numOf(root, tag){
+    const t = textOf(root, tag);
+    return t ? (parseFloat(t)||0) : 0;
+  }
+
+  const items = bodyRows.map((row, idx)=>{
+    const name = textOf(row,'NAME') || '(без назви)';
+    const amount = numOf(row,'AMOUNT');
+    const price = numOf(row,'PRICE');
+    const cost = numOf(row,'COST');
+    const qty = amount>0 ? amount : 1;
+    const unitPrice = price>0 ? price : cost;
+    const sum = cost>0 ? cost : Math.round(qty*unitPrice*100)/100;
+    return {
+      id: uid('i'), n: String(idx+1), name, qty, price: unitPrice, sum, discount: 0, code: '',
+      buyerIds: [], mode: 'equal', manualType: 'amount', manualValues: {}
+    };
+  });
+
+  const totalSum = numOf(totalEl,'SUM') || items.reduce((a,i)=>a+i.sum,0);
+
+  const orderDate = textOf(head,'ORDERDATE'); // DDMMYYYY
+  const orderTime = textOf(head,'ORDERTIME'); // HHMMSS
+  let dateStr = '';
+  if(orderDate.length===8){
+    const d=orderDate.slice(0,2), mo=orderDate.slice(2,4), y=orderDate.slice(4,8);
+    let h='00', mi='00', s='00';
+    if(orderTime.length===6){ h=orderTime.slice(0,2); mi=orderTime.slice(2,4); s=orderTime.slice(4,6); }
+    dateStr = `${d}.${mo}.${y} ${h}:${mi}:${s}`;
+  }
+
+  const checkNoFromFileName = (fileName||'')
+    .replace(/\.xml$/i, '')
+    .replace(/(\s\(\d+\)|_\d+)$/, '');
+  const checkNo = textOf(head,'ORDERTAXNUM') || checkNoFromFileName || textOf(head,'UID') || textOf(head,'ORDERNUM') || '';
+
+  const fn = textOf(head,'CASHREGISTERNUM');
+  const tnDigits = (textOf(head,'TIN').match(/\d+/g)||[]).join('');
+  const tn = tnDigits;
+  const tnLabel = 'ІД продавця';
+  const ipn = textOf(head,'IPN');
+  const docNumber = textOf(head,'ORDERNUM');
+  const cashDeskNum = textOf(head,'CASHDESKNUM');
+  const orgName = textOf(head,'ORGNM');
+  const pointName = textOf(head,'POINTNM');
+  const pointAddr = textOf(head,'POINTADDR');
+  const cashier = textOf(head,'CASHIER');
+
+  let payment = null;
+  if(payRow){
+    const provided = numOf(payRow,'PROVIDED');
+    const paySum = numOf(payRow,'SUM');
+    payment = {
+      label: textOf(payRow,'PAYFORMNM'),
+      system: textOf(paySysRow,'NAME'),
+      cardMasked: textOf(paySysRow,'EPZDETAILS'),
+      authCode: textOf(paySysRow,'AUTHCD'),
+      rrn: textOf(paySysRow,'ACQUIRETRANSID'),
+      operation: '',
+      terminal: textOf(paySysRow,'DEVICEID') || textOf(paySysRow,'ACQUIREID'),
+      bankName: textOf(paySysRow,'ACQUIRENM'),
+      provided: provided>0 ? provided : null,
+      change: (provided>0 && provided>paySum) ? Math.round((provided-paySum)*100)/100 : null
+    };
+  }
+
+  const taxGroups = taxRows.map(row=>{
+    const name = textOf(row,'NAME') || 'ПДВ';
+    const letter = textOf(row,'LETTER');
+    const prc = textOf(row,'PRC');
+    const sum = numOf(row,'SUM');
+    return { label: `${name}${letter?(' '+letter):''}`, rate: prc?parseFloat(prc).toFixed(2):'', sum };
+  });
+
+  return {
+    fileName, items, totalSum, checkNo, dateStr, payMethod: payment?payment.label:'',
+    fn, tn, tnLabel, zn:'', docNumber, shiftSerial:'', payment, taxGroups,
+    ipn, orgName, pointName, pointAddr, cashier, cashDeskNum
+  };
+}
+
 /* ---------- RECEIPT + ASSIGNMENT RENDERING ---------- */
 function renderReceipt(){
   const el = document.getElementById('receiptSection');
@@ -618,9 +721,15 @@ function ukGroupLetter(groupNum){
 }
 function renderReceiptDetails(r){
   const rows = [];
+  if(r.orgName) rows.push(['Продавець', r.orgName]);
   if(r.fn) rows.push(['ФН ПРРО', r.fn]);
   if(r.tn) rows.push([r.tnLabel || 'ІД продавця', r.tn]);
+  if(r.ipn) rows.push(['ІПН продавця', r.ipn]);
   if(r.zn) rows.push(['Заводський номер', r.zn]);
+  if(r.pointName) rows.push(['Точка продажу', r.pointName]);
+  if(r.pointAddr) rows.push(['Адреса', r.pointAddr]);
+  if(r.cashier) rows.push(['Касир', r.cashier]);
+  if(r.cashDeskNum) rows.push(['№ каси', r.cashDeskNum]);
   if(r.docNumber) rows.push(['№ документа', r.docNumber]);
   if(r.shiftSerial) rows.push(['Серійний номер', r.shiftSerial]);
   if(r.checkNo) rows.push(['№ чека', r.checkNo]);
@@ -630,11 +739,14 @@ function renderReceiptDetails(r){
     const p = r.payment;
     if(p.label) rows.push(['Спосіб оплати', p.label]);
     if(p.system) rows.push(['Платіжна система', p.system]);
+    if(p.bankName) rows.push(['Банк-еквайр', p.bankName]);
     if(p.operation) rows.push(['Вид операції', p.operation]);
     if(p.cardMasked) rows.push(['Картка', p.cardMasked]);
     if(p.authCode) rows.push(['Код авторизації', p.authCode]);
     if(p.rrn) rows.push(['RRN', p.rrn]);
     if(p.terminal) rows.push(['Термінал', p.terminal]);
+    if(p.provided!=null) rows.push(['Отримано готівкою', fmtMoney(p.provided)]);
+    if(p.change!=null) rows.push(['Решта', fmtMoney(p.change)]);
   }
 
   const rowsHtml = rows.map(([label,val])=>`
@@ -676,9 +788,9 @@ function renderAssignRow(it){
   if(multi){
     modeUi += `<div class="mode-toggle">
       <button class="${it.mode==='equal'?'active':''}" onclick="setItemMode('${it.id}','equal')">Порівну</button>
-      <button class="${it.mode==='manual'&&it.manualType==='amount'?'active':''}" onclick="setItemMode('${it.id}','manual','amount')">Сума вручну</button>
-      <button class="${it.mode==='manual'&&it.manualType==='percent'?'active':''}" onclick="setItemMode('${it.id}','manual','percent')">% вручну</button>
       <button class="${it.mode==='manual'&&it.manualType==='fraction'?'active':''}" onclick="setItemMode('${it.id}','manual','fraction')">Частками</button>
+      <button class="${it.mode==='manual'&&it.manualType==='percent'?'active':''}" onclick="setItemMode('${it.id}','manual','percent')">% вручну</button>
+      <button class="${it.mode==='manual'&&it.manualType==='amount'?'active':''}" onclick="setItemMode('${it.id}','manual','amount')">₴ вручну</button>
     </div>`;
     if(it.mode==='manual' && it.manualType==='fraction'){
       const alloc = allocateItem(it);
