@@ -1227,7 +1227,7 @@ function renderHistory(){
 
   const grandRows = state.buyers.map(b=>`
     <div class="result-buyer">
-      <span class="name">${escapeHtml(b.name)}</span>
+      <span class="name chip" style="cursor:default;pointer-events:none;">${escapeHtml(b.name)}</span>
       <span class="sum">${fmtMoney(grand[b.id]||0)}</span>
     </div>
   `).join('');
