@@ -539,7 +539,7 @@ function parseRqSchema(doc, fileName){
   let tn = '', tnLabel = 'ІД продавця';
   if(tnDigits.length===12){
     tn = tnDigits;
-    tnLabel = 'ПН продавця';
+    tnLabel = 'ІПН продавця';
   }else if(tnDigits.length===8 || tnDigits.length===10){
     tn = tnDigits;
     tnLabel = 'ІД продавця';
@@ -909,13 +909,26 @@ function setItemMode(itemId, mode, manualType){
       it.manualValues = {};
     }
     const n = it.buyerIds.length;
-    it.buyerIds.forEach(bid=>{
-      if(it.manualValues[bid]===undefined){
-        if(it.manualType==='percent') it.manualValues[bid] = Math.round((100/n)*100)/100;
-        else if(it.manualType==='fraction') it.manualValues[bid] = 1;
-        else it.manualValues[bid] = Math.round((it.sum/n)*100)/100;
+    if(it.manualType==='amount'){
+      const undefinedBids = it.buyerIds.filter(bid=>it.manualValues[bid]===undefined);
+      if(undefinedBids.length>0){
+        const alreadyAssigned = it.buyerIds.reduce((a,bid)=>a + (it.manualValues[bid]!==undefined ? (parseFloat(it.manualValues[bid])||0) : 0), 0);
+        const remaining = it.sum - alreadyAssigned;
+        const base = Math.floor((remaining/undefinedBids.length)*100)/100;
+        let assigned = 0;
+        undefinedBids.forEach((bid,idx)=>{
+          if(idx < undefinedBids.length-1){ it.manualValues[bid]=base; assigned+=base; }
+          else { it.manualValues[bid] = Math.round((remaining-assigned)*100)/100; }
+        });
       }
-    });
+    }else{
+      it.buyerIds.forEach(bid=>{
+        if(it.manualValues[bid]===undefined){
+          if(it.manualType==='percent') it.manualValues[bid] = Math.round((100/n)*100)/100;
+          else if(it.manualType==='fraction') it.manualValues[bid] = 1;
+        }
+      });
+    }
   }
   renderReceipt();
   renderResults();
@@ -986,9 +999,15 @@ function allocateItem(it){
   if(it.manualType==='amount'){
     it.buyerIds.forEach(bid=>{ result[bid] = parseFloat(it.manualValues[bid])||0; });
   }else if(it.manualType==='percent'){
-    it.buyerIds.forEach(bid=>{
-      const pct = parseFloat(it.manualValues[bid])||0;
-      result[bid] = Math.round((it.sum*pct/100)*100)/100;
+    const pcts = it.buyerIds.map(bid=>parseFloat(it.manualValues[bid])||0);
+    let assigned = 0;
+    it.buyerIds.forEach((bid,idx)=>{
+      if(idx < it.buyerIds.length-1){
+        const amt = Math.floor((it.sum*pcts[idx]/100)*100)/100;
+        result[bid]=amt; assigned+=amt;
+      }else{
+        result[bid]=Math.round((it.sum-assigned)*100)/100;
+      }
     });
   }else if(it.manualType==='fraction'){
     const shares = it.buyerIds.map(bid=>parseFloat(it.manualValues[bid])||0);
@@ -1000,7 +1019,7 @@ function allocateItem(it){
       it.buyerIds.forEach((bid,idx)=>{
         const share = parseFloat(it.manualValues[bid])||0;
         if(idx < it.buyerIds.length-1){
-          const amt = Math.round((it.sum*share/totalShares)*100)/100;
+          const amt = Math.floor((it.sum*share/totalShares)*100)/100;
           result[bid]=amt; assigned+=amt;
         }else{
           result[bid]=Math.round((it.sum-assigned)*100)/100;
@@ -1043,13 +1062,14 @@ function buyerItemBreakdown(bid){
       }else if(it.manualType==='percent'){
         const pct = parseFloat(it.manualValues[bid]) || 0;
         const pctStr = Number.isInteger(pct) ? pct : pct.toFixed(2).replace(/\.?0+$/,'');
-        shareLabel = `${pctStr}% · за відсотками`;
+        shareLabel = `${pctStr}%`;
       }else if(it.manualType==='fraction'){
         const share = parseFloat(it.manualValues[bid]) || 0;
         const total = it.buyerIds.reduce((a,id)=>a+(parseFloat(it.manualValues[id])||0),0);
         if(share>0 && total>0){
           const g = gcd(share, total) || 1;
-          shareLabel = `${share/g}/${total/g} · частками`;
+          const num = share/g, den = total/g;
+          shareLabel = `${num}/${den} ${pluralChastka(num)}`;
         }else{
           shareLabel = 'частками';
         }
@@ -1261,7 +1281,7 @@ function renderHistory(){
 
   el.innerHTML = items + (state.history.length>1 ? `
     <div style="margin-top:16px;">
-      <div style="font-family:'Fraunces',serif;font-weight:600;margin-bottom:8px;">Разом по всіх чеках</div>
+      <div style="font-weight:700;margin-bottom:8px;">Разом по всіх чеках</div>
       <div class="result-grid">${grandRows}</div>
     </div>` : '');
   updateSaveButtonVisibility();
