@@ -934,7 +934,7 @@ function renderAssignRow(it){
         const amtHint = it.manualType==='percent' ? ` <span style="color:var(--muted);">= ${fmtMoney(alloc[bid]||0)}</span>` : '';
         return `<div class="manual-row">
           <span class="label">${escapeHtml(b?b.name:'?')}</span>
-          <input type="number" step="1" value="${val}" id="mv_${it.id}_${bid}" onfocus="setLastFocusedBuyer('${it.id}','${bid}')" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
+          <input type="number" step="${it.mode==='manual'&&it.manualType==='amount'?'0.01':'1'}" value="${val}" id="mv_${it.id}_${bid}" onfocus="setLastFocusedBuyer('${it.id}','${bid}')" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
         </div>`;
       }).join('');
       // remainder indicator
