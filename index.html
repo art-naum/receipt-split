@@ -754,10 +754,45 @@ function parseCheckSchema(doc, fileName){
     verifyUrl = `https://cabinet.tax.gov.ua/cashregs/check?date=${dateParam}&time=${timeParam}&id=${encodeURIComponent(checkNo)}&sm=${encodeURIComponent(smParam)}&fn=${encodeURIComponent(fn)}`;
   }
 
+  // Money-transfer-style receipts (e.g. "Переказ коштів...") carry extra recipient/bank details
+  // on the item row itself, plus a free-text PAYDETAILSP blob with more payment specifics.
+  const firstBodyRow = bodyRows[0] || null;
+  const recipientNm = textOf(firstBodyRow,'RECIPIENTNM');
+  const recipientIpn = textOf(firstBodyRow,'RECIPIENTIPN');
+  const bankNm = textOf(firstBodyRow,'BANKNM');
+  const bankRs = textOf(firstBodyRow,'BANKRS');
+  const payerNm = textOf(firstBodyRow,'PAYERNM');
+
+  const payDetailsBlob = textOf(firstBodyRow,'PAYDETAILSP');
+  let phone = '', epz = '';
+  if(payDetailsBlob && payment){
+    const labels = ['Номер телефону:','Еквайр:','Ідентифікатор торговця:','Ідентифікатор термінала:','RRN:','Auth code:','ЕПЗ:','Платіжна система:'];
+    function grab(label){
+      const idx = payDetailsBlob.indexOf(label);
+      if(idx===-1) return '';
+      const start = idx + label.length;
+      let end = payDetailsBlob.length;
+      labels.forEach(l=>{
+        if(l===label) return;
+        const i = payDetailsBlob.indexOf(l, start);
+        if(i!==-1 && i<end) end = i;
+      });
+      return payDetailsBlob.slice(start,end).trim();
+    }
+    phone = grab('Номер телефону:');
+    epz = grab('ЕПЗ:');
+    // fill in payment sub-fields when the structured PAYSYS tags didn't already provide them
+    if(!payment.authCode) payment.authCode = grab('Auth code:');
+    if(!payment.rrn) payment.rrn = grab('RRN:');
+    if(!payment.terminal) payment.terminal = grab('Ідентифікатор термінала:');
+    if(!payment.system) payment.system = grab('Платіжна система:');
+  }
+
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod: payment?payment.label:'',
     fn, tn, tnLabel, zn:'', docNumber, shiftSerial:'', payment, taxGroups, verifyUrl,
-    ipn, orgName, pointName, pointAddr, cashier, cashDeskNum
+    ipn, orgName, pointName, pointAddr, cashier, cashDeskNum,
+    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz
   };
 }
 
@@ -856,6 +891,13 @@ function renderReceiptDetails(r){
     if(p.provided!=null) rows.push(['Отримано готівкою', fmtMoney(p.provided)]);
     if(p.change!=null) rows.push(['Решта', fmtMoney(p.change)]);
   }
+  if(r.payerNm) rows.push(['Платник', r.payerNm]);
+  if(r.phone) rows.push(['Телефон платника', r.phone]);
+  if(r.recipientNm) rows.push(['Отримувач переказу', r.recipientNm]);
+  if(r.recipientIpn) rows.push(['ІПН отримувача', r.recipientIpn]);
+  if(r.bankNm) rows.push(['Банк отримувача', r.bankNm]);
+  if(r.bankRs) rows.push(['IBAN отримувача', r.bankRs]);
+  if(r.epz) rows.push(['ЕПЗ', r.epz]);
 
   const rowsHtml = rows.map(([label,val])=>`
     <div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-val">${escapeHtml(val)}</span></div>
@@ -930,7 +972,13 @@ function renderAssignRow(it){
       const alloc = it.manualType==='percent' ? allocateItem(it) : null;
       modeUi += it.buyerIds.map(bid=>{
         const b = buyers.find(x=>x.id===bid);
-        const val = it.manualValues[bid] ?? '';
+        let val = it.manualValues[bid] ?? '';
+        const fieldId = `mv_${it.id}_${bid}`;
+        const isFocused = document.activeElement && document.activeElement.id===fieldId;
+        if(it.manualType==='amount' && val!=='' && !isFocused){
+          const num = parseFloat(val);
+          if(!isNaN(num)) val = num.toFixed(2);
+        }
         const amtHint = it.manualType==='percent' ? ` <span style="color:var(--muted);">= ${fmtMoney(alloc[bid]||0)}</span>` : '';
         return `<div class="manual-row">
           <span class="label">${escapeHtml(b?b.name:'?')}</span>
