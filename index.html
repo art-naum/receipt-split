@@ -30,8 +30,8 @@
     margin:0;
     min-height:100vh;
     background:
-      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(10,132,255,0.35), transparent 55%),
-      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(191,90,242,0.35), transparent 55%),
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(10,132,255,0.16), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(191,90,242,0.10), transparent 55%),
       #000000;
     color:var(--ink);
     font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
@@ -243,20 +243,30 @@
   .receipt-qr{
     text-align:center;
     margin-top:18px;
-    padding-top:16px;
-    border-top:1px solid var(--line);
   }
   .receipt-qr a{
-    display:inline-block;
+    display:inline-flex;
+    flex-direction:column;
+    align-items:center;
     text-decoration:none;
     transition:opacity .12s ease;
   }
   .receipt-qr a:hover{opacity:0.75;}
+  .receipt-qr .qr-box{
+    display:inline-block;
+    background:#fdfbf6;
+    padding:12px;
+    border-radius:12px;
+    line-height:0;
+    box-shadow:0 1px 0 rgba(255,255,255,0.5) inset, 0 6px 16px -6px rgba(0,0,0,0.5);
+  }
   .receipt-qr .qr-caption{
-    margin-top:6px;
-    font-size:0.62rem;
+    margin-top:8px;
+    font-size:0.68rem;
     letter-spacing:0.02em;
-    color:var(--muted);
+    color:var(--accent-dark);
+    text-decoration:underline dotted;
+    text-underline-offset:2px;
   }
 
   /* --- assignment block --- */
@@ -633,9 +643,10 @@ function parseRqSchema(doc, fileName){
   let verifyUrl = '';
   if(fn && checkNo && tsRaw && tsRaw.length>=14){
     const dateParam = tsRaw.slice(0,8);
-    const timeParam = `${tsRaw.slice(8,10)}:${tsRaw.slice(10,12)}:${tsRaw.slice(12,14)}`;
+    // official format is HHmm (no seconds, no colons) — see ДПС check-lookup spec
+    const timeParam = `${tsRaw.slice(8,10)}${tsRaw.slice(10,12)}`;
     const smParam = totalSum.toFixed(2);
-    verifyUrl = `https://cabinet.tax.gov.ua/cashregs/check?mac=&date=${dateParam}&time=${encodeURIComponent(timeParam)}&id=${encodeURIComponent(checkNo)}&sm=${encodeURIComponent(smParam)}&fn=${encodeURIComponent(fn)}`;
+    verifyUrl = `https://cabinet.tax.gov.ua/cashregs/check?date=${dateParam}&time=${timeParam}&id=${encodeURIComponent(checkNo)}&sm=${encodeURIComponent(smParam)}&fn=${encodeURIComponent(fn)}`;
   }
 
   return {
@@ -732,12 +743,15 @@ function parseCheckSchema(doc, fileName){
     return { label: `${name}${letter?(' '+letter):''}`, rate: prc?parseFloat(prc).toFixed(2):'', sum };
   });
 
-  // verification link (same cabinet.tax.gov.ua endpoint regardless of XML export schema); mac left blank on purpose
+  // verification link (same cabinet.tax.gov.ua endpoint regardless of XML export schema); mac omitted on purpose (not present in export)
   let verifyUrl = '';
   if(fn && checkNo && orderDate.length===8){
-    const timeParam = orderTime.length===6 ? `${orderTime.slice(0,2)}:${orderTime.slice(2,4)}:${orderTime.slice(4,6)}` : '00:00:00';
+    // ORDERDATE is DDMMYYYY; the check-lookup service expects date=yyyyMMdd
+    const dateParam = `${orderDate.slice(4,8)}${orderDate.slice(2,4)}${orderDate.slice(0,2)}`;
+    // official format is HHmm (no seconds, no colons) — see ДПС check-lookup spec
+    const timeParam = orderTime.length===6 ? `${orderTime.slice(0,2)}${orderTime.slice(2,4)}` : '0000';
     const smParam = totalSum.toFixed(2);
-    verifyUrl = `https://cabinet.tax.gov.ua/cashregs/check?mac=&date=${orderDate}&time=${encodeURIComponent(timeParam)}&id=${encodeURIComponent(checkNo)}&sm=${encodeURIComponent(smParam)}&fn=${encodeURIComponent(fn)}`;
+    verifyUrl = `https://cabinet.tax.gov.ua/cashregs/check?date=${dateParam}&time=${timeParam}&id=${encodeURIComponent(checkNo)}&sm=${encodeURIComponent(smParam)}&fn=${encodeURIComponent(fn)}`;
   }
 
   return {
@@ -862,9 +876,9 @@ function renderReceiptDetails(r){
   const qrHtml = r.verifyUrl ? `
     <div class="receipt-qr">
       <a href="${r.verifyUrl}" target="_blank" rel="noopener" title="Перевірити чек на сайті ДПС">
-        <div id="receiptQrCode"></div>
+        <div class="qr-box"><div id="receiptQrCode"></div></div>
+        <span class="qr-caption">Перевірити чек на сайті ДПС</span>
       </a>
-      <div class="qr-caption">Перевірити чек на сайті ДПС</div>
     </div>
   ` : '';
 
