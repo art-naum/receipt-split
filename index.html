@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Розкладка чеку</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{
     --paper:#000000;
@@ -47,17 +48,17 @@
   .subtitle{color:var(--muted);font-size:0.95rem;margin-bottom:28px;letter-spacing:-0.01em;}
   .card{
     background:var(--glass);
-    backdrop-filter:blur(40px) saturate(180%);
-    -webkit-backdrop-filter:blur(40px) saturate(180%);
-    --ink:rgba(255,255,255,0.96);
-    --ink-soft:rgba(255,255,255,0.68);
-    --muted:rgba(255,255,255,0.46);
-    --line:rgba(255,255,255,0.14);
-    --field:rgba(255,255,255,0.07);
-    --accent-soft:rgba(10,132,255,0.18);
+    backdrop-filter:blur(46px) saturate(200%);
+    -webkit-backdrop-filter:blur(46px) saturate(200%);
+    --ink:rgba(255,255,255,0.97);
+    --ink-soft:rgba(255,255,255,0.72);
+    --muted:rgba(255,255,255,0.50);
+    --line:rgba(255,255,255,0.16);
+    --field:rgba(255,255,255,0.08);
+    --accent-soft:rgba(10,132,255,0.20);
     --accent-dark:#6bb3ff;
-    --warn-soft:rgba(255,159,10,0.18);
-    --danger-soft:rgba(255,69,58,0.18);
+    --warn-soft:rgba(255,159,10,0.20);
+    --danger-soft:rgba(255,69,58,0.20);
     --warn:#ffb340;
     --danger:#ff6961;
     color:var(--ink);
@@ -65,7 +66,8 @@
     border:1px solid var(--glass-border);
     padding:22px 22px;
     margin-bottom:20px;
-    box-shadow:0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 40px -20px rgba(0,0,0,0.6);
+    box-shadow:0 1px 0 rgba(255,255,255,0.08) inset, 0 20px 44px -20px rgba(0,0,0,0.65);
+    transition:background .25s ease, backdrop-filter .25s ease, border-color .25s ease;
   }
   .card h2{
     font-size:1.08rem;
@@ -81,9 +83,11 @@
     font-size:0.72rem;
     font-weight:700;
     color:var(--accent-dark);
-    background:var(--accent-soft);
+    background:linear-gradient(180deg, rgba(10,132,255,0.32), rgba(10,132,255,0.14));
+    border:1px solid rgba(255,255,255,0.18);
+    box-shadow:0 1px 0 rgba(255,255,255,0.25) inset, 0 2px 5px -1px rgba(0,0,0,0.4);
     border-radius:50%;
-    width:20px;height:20px;
+    width:21px;height:21px;
     display:inline-flex;align-items:center;justify-content:center;
   }
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
@@ -173,19 +177,24 @@
     --muted:#83897f;
     --line:#ddd8c8;
     --accent-dark:#1e4d7a;
-    background:#fdfbf6;
     color:var(--ink);
     border-radius:6px;
     box-shadow:0 20px 50px -15px rgba(0,0,0,0.65);
-    padding:26px 24px 6px;
     font-family:ui-monospace, 'SF Mono', Menlo, monospace;
     position:relative;
+  }
+  .receipt-inner{
+    background:#fdfbf6;
+    border-radius:6px 6px 0 0;
+    padding:26px 24px 6px;
+  }
+  .receipt-tear{
+    height:14px;
+    background:#fdfbf6;
     clip-path: polygon(
-      0% 0%, 100% 0%, 100% 98%,
-      97% 100%, 94% 98%, 91% 100%, 88% 98%, 85% 100%, 82% 98%, 79% 100%, 76% 98%, 73% 100%,
-      70% 98%, 67% 100%, 64% 98%, 61% 100%, 58% 98%, 55% 100%, 52% 98%, 49% 100%, 46% 98%,
-      43% 100%, 40% 98%, 37% 100%, 34% 98%, 31% 100%, 28% 98%, 25% 100%, 22% 98%, 19% 100%,
-      16% 98%, 13% 100%, 10% 98%, 7% 100%, 4% 98%, 1% 100%, 0% 98%
+      0% 0%, 100% 0%, 100% 14%,
+      93% 100%, 86% 14%, 79% 100%, 72% 14%, 65% 100%, 58% 14%, 51% 100%,
+      44% 14%, 37% 100%, 30% 14%, 23% 100%, 16% 14%, 9% 100%, 2% 14%, 0% 100%
     );
   }
   .receipt-head{text-align:center;margin-bottom:14px;}
@@ -230,6 +239,24 @@
   .detail-subhead{
     font-family:inherit;font-weight:600;color:var(--ink-soft);
     margin:14px 0 4px;font-size:0.82rem;
+  }
+  .receipt-qr{
+    text-align:center;
+    margin-top:18px;
+    padding-top:16px;
+    border-top:1px solid var(--line);
+  }
+  .receipt-qr a{
+    display:inline-block;
+    text-decoration:none;
+    transition:opacity .12s ease;
+  }
+  .receipt-qr a:hover{opacity:0.75;}
+  .receipt-qr .qr-caption{
+    margin-top:6px;
+    font-size:0.62rem;
+    letter-spacing:0.02em;
+    color:var(--muted);
   }
 
   /* --- assignment block --- */
@@ -599,9 +626,21 @@ function parseRqSchema(doc, fileName){
     }
   });
 
+  // verification link, matching the QR code printed on the paper receipt:
+  // https://cabinet.tax.gov.ua/cashregs/check?mac=...&date=YYYYMMDD&time=HH:MM:SS&id=...&sm=X.XX&fn=...
+  // The `mac` value is a server-side signature that isn't present anywhere in the exported XML
+  // (confirmed: it does not match the <MAC> element's own hash), so it's left blank on purpose.
+  let verifyUrl = '';
+  if(fn && checkNo && tsRaw && tsRaw.length>=14){
+    const dateParam = tsRaw.slice(0,8);
+    const timeParam = `${tsRaw.slice(8,10)}:${tsRaw.slice(10,12)}:${tsRaw.slice(12,14)}`;
+    const smParam = totalSum.toFixed(2);
+    verifyUrl = `https://cabinet.tax.gov.ua/cashregs/check?mac=&date=${dateParam}&time=${encodeURIComponent(timeParam)}&id=${encodeURIComponent(checkNo)}&sm=${encodeURIComponent(smParam)}&fn=${encodeURIComponent(fn)}`;
+  }
+
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod,
-    fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, taxGroups
+    fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, taxGroups, verifyUrl
   };
 }
 
@@ -693,9 +732,17 @@ function parseCheckSchema(doc, fileName){
     return { label: `${name}${letter?(' '+letter):''}`, rate: prc?parseFloat(prc).toFixed(2):'', sum };
   });
 
+  // verification link (same cabinet.tax.gov.ua endpoint regardless of XML export schema); mac left blank on purpose
+  let verifyUrl = '';
+  if(fn && checkNo && orderDate.length===8){
+    const timeParam = orderTime.length===6 ? `${orderTime.slice(0,2)}:${orderTime.slice(2,4)}:${orderTime.slice(4,6)}` : '00:00:00';
+    const smParam = totalSum.toFixed(2);
+    verifyUrl = `https://cabinet.tax.gov.ua/cashregs/check?mac=&date=${orderDate}&time=${encodeURIComponent(timeParam)}&id=${encodeURIComponent(checkNo)}&sm=${encodeURIComponent(smParam)}&fn=${encodeURIComponent(fn)}`;
+  }
+
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod: payment?payment.label:'',
-    fn, tn, tnLabel, zn:'', docNumber, shiftSerial:'', payment, taxGroups,
+    fn, tn, tnLabel, zn:'', docNumber, shiftSerial:'', payment, taxGroups, verifyUrl,
     ipn, orgName, pointName, pointAddr, cashier, cashDeskNum
   };
 }
@@ -725,12 +772,15 @@ function renderReceipt(){
     <div class="card">
       <h2><span class="num">2</span> Чек ${r.checkNo?('№'+r.checkNo):''}</h2>
       <div class="receipt-outer">
-        <div class="receipt-head">
-          <div class="shop">Фіскальний чек</div>
-          <div class="meta">${r.dateStr||''}${r.payMethod?(' · '+escapeHtml(r.payMethod)):''}</div>
+        <div class="receipt-inner">
+          <div class="receipt-head">
+            <div class="shop">Фіскальний чек</div>
+            <div class="meta">${r.dateStr||''}${r.payMethod?(' · '+escapeHtml(r.payMethod)):''}</div>
+          </div>
+          ${lines}
+          <div class="receipt-total"><span>РАЗОМ</span><span>${fmtMoney(r.totalSum)}</span></div>
         </div>
-        ${lines}
-        <div class="receipt-total"><span>РАЗОМ</span><span>${fmtMoney(r.totalSum)}</span></div>
+        <div class="receipt-tear"></div>
       </div>
       ${detailsBlock}
     </div>
@@ -739,6 +789,23 @@ function renderReceipt(){
       <div class="assign-block">${assignRows}</div>
     </div>
   `;
+
+  if(r.verifyUrl){
+    const qrEl = document.getElementById('receiptQrCode');
+    if(qrEl && typeof QRCode !== 'undefined'){
+      qrEl.innerHTML = '';
+      new QRCode(qrEl, {
+        text: r.verifyUrl,
+        width: 116,
+        height: 116,
+        colorDark: '#1a2018',
+        colorLight: '#fdfbf6',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }else if(qrEl){
+      qrEl.innerHTML = '<div style="font-size:0.7rem;color:var(--muted);padding:20px 0;">QR недоступний (немає інтернету)</div>';
+    }
+  }
 }
 
 function ukGroupLetter(groupNum){
@@ -790,7 +857,16 @@ function renderReceiptDetails(r){
     `).join('')}
   ` : '';
 
-  if(rows.length===0 && !taxHtml) return '';
+  if(rows.length===0 && !taxHtml && !r.verifyUrl) return '';
+
+  const qrHtml = r.verifyUrl ? `
+    <div class="receipt-qr">
+      <a href="${r.verifyUrl}" target="_blank" rel="noopener" title="Перевірити чек на сайті ДПС">
+        <div id="receiptQrCode"></div>
+      </a>
+      <div class="qr-caption">Перевірити чек на сайті ДПС</div>
+    </div>
+  ` : '';
 
   return `
     <details class="receipt-details">
@@ -798,6 +874,7 @@ function renderReceiptDetails(r){
       <div class="detail-grid">
         ${rowsHtml}
         ${taxHtml}
+        ${qrHtml}
       </div>
     </details>
   `;
@@ -1230,6 +1307,11 @@ function describeAllocation(it, buyerNames){
   }
   return it.buyerIds.map(bid=>`${escapeHtml((buyerNames&&buyerNames[bid])||'?')}: ${fmtMoney(alloc[bid]||0)}`).join(', ') + modeLabel;
 }
+function checkNoMatchesFileName(checkNo, fileName){
+  if(!checkNo || !fileName) return false;
+  const base = fileName.replace(/\.xml$/i,'').replace(/(\s\(\d+\)|_\d+)$/,'');
+  return base === checkNo;
+}
 function renderHistory(){
   const el = document.getElementById('historyList');
   if(state.history.length===0){
@@ -1258,7 +1340,7 @@ function renderHistory(){
     <div class="history-item" style="flex-direction:column;align-items:stretch;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div>${escapeHtml(h.fileName)} ${h.checkNo?('· №'+h.checkNo):''}</div>
+          <div>${escapeHtml(h.fileName)}${(h.checkNo && checkNoMatchesFileName(h.checkNo, h.fileName)) ? '' : (h.checkNo?(' · №'+escapeHtml(h.checkNo)):'')}</div>
           <div class="hf">${h.dateStr||''} · ${fmtMoney(h.totalSum)} · ${h.totals.filter(t=>t.sum>0.01).map(t=>`${escapeHtml(t.name)}: ${fmtMoney(t.sum)}`).join(', ')}</div>
         </div>
         <div class="row" style="gap:6px;">
