@@ -1309,7 +1309,8 @@ function saveToHistory(){
     totalSum: state.receipt.totalSum,
     items: JSON.parse(JSON.stringify(state.receipt.items)),
     buyerNames,
-    totals: state.buyers.map(b=>({buyerId:b.id, name:b.name, sum: round2(totals[b.id]||0)}))
+    totals: state.buyers.map(b=>({buyerId:b.id, name:b.name, sum: round2(totals[b.id]||0)})),
+    receiptSnapshot: JSON.parse(JSON.stringify(state.receipt))
   });
   state.receipt = null;
   document.getElementById('fileInput').value = '';
@@ -1333,14 +1334,22 @@ function reopenHistoryItem(id){
     const ok = confirm('Зараз у роботі вже є інший чек, ще не збережений в історію. Якщо продовжиш — його прогрес розподілу буде втрачено (сам чек не пропаде, зможеш завантажити його XML ще раз). Відкрити чек з історії замість нього?');
     if(!ok) return;
   }
-  state.receipt = {
-    fileName: h.fileName,
-    items: JSON.parse(JSON.stringify(h.items)),
-    totalSum: h.totalSum,
-    checkNo: h.checkNo,
-    dateStr: h.dateStr,
-    payMethod: h.payMethod || ''
-  };
+  if(h.receiptSnapshot){
+    // full metadata preserved (fn, tn, payment, taxGroups, verifyUrl, etc.) — restore it as-is,
+    // but always take the freshest edited item assignments from h.items
+    state.receipt = JSON.parse(JSON.stringify(h.receiptSnapshot));
+    state.receipt.items = JSON.parse(JSON.stringify(h.items));
+  }else{
+    // older saved file without the full snapshot — reconstruct what we can
+    state.receipt = {
+      fileName: h.fileName,
+      items: JSON.parse(JSON.stringify(h.items)),
+      totalSum: h.totalSum,
+      checkNo: h.checkNo,
+      dateStr: h.dateStr,
+      payMethod: h.payMethod || ''
+    };
+  }
   state.history = state.history.filter(x=>x.id!==id);
   expandedHistory.delete(id);
   renderReceipt();
