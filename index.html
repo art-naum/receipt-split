@@ -189,13 +189,11 @@
     padding:26px 24px 6px;
   }
   .receipt-tear{
-    height:14px;
+    --tooth:18px;
+    height:calc(var(--tooth) / 2);
     background:#fdfbf6;
-    clip-path: polygon(
-      0% 0%, 100% 0%, 100% 14%,
-      93% 100%, 86% 14%, 79% 100%, 72% 14%, 65% 100%, 58% 14%, 51% 100%,
-      44% 14%, 37% 100%, 30% 14%, 23% 100%, 16% 14%, 9% 100%, 2% 14%, 0% 100%
-    );
+    -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--tooth) calc(var(--tooth) / 2) repeat-x;
+    mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--tooth) calc(var(--tooth) / 2) repeat-x;
   }
   .receipt-head{text-align:center;margin-bottom:14px;}
   .receipt-head .shop{font-size:0.78rem;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;}
