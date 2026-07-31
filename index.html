@@ -189,11 +189,12 @@
     padding:26px 24px 6px;
   }
   .receipt-tear{
-    --tooth:18px;
+    --tooth:20px;
     height:calc(var(--tooth) / 2);
     background:#fdfbf6;
     -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--tooth) calc(var(--tooth) / 2) repeat-x;
     mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--tooth) calc(var(--tooth) / 2) repeat-x;
+    margin-top: -1px;
   }
   .receipt-head{text-align:center;margin-bottom:14px;}
   .receipt-head .shop{font-size:0.78rem;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;}
@@ -1211,7 +1212,7 @@ function buyerItemBreakdown(bid){
           shareLabel = 'частками';
         }
       }else{
-        shareLabel = 'сума вручну';
+        shareLabel = 'вручну';
       }
       return { name: it.name, amount, shareLabel };
     });
