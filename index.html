@@ -256,6 +256,7 @@
     background:#fdfbf6;
     -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--tooth) calc(var(--tooth) / 2) repeat-x;
     mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--tooth) calc(var(--tooth) / 2) repeat-x;
+    margin-top: -1px;
   }
   .receipt-head{text-align:center;margin-bottom:14px;}
   .receipt-head .shop{font-size:0.78rem;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;}
@@ -406,7 +407,7 @@
   .buyer-detail-row:last-child{border-bottom:none;}
   .bd-name{color:var(--ink);flex:1 1 auto;min-width:0;}
   .bd-share{color:var(--muted);font-size:0.76rem;white-space:nowrap;flex:0 0 75px;text-align:right;}
-  .bd-amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:600;color:var(--ink);white-space:nowrap;flex:0 0 75px;text-align:right;}
+  .bd-amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:600;color:var(--ink);white-space:nowrap;flex:0 0 70px;text-align:right;}
   .result-total{
     background:var(--accent-soft);
     border:1px solid var(--accent);
@@ -900,7 +901,7 @@ function renderReceipt(){
       ${detailsBlock}
     </div>
     <div class="card">
-      <h2><span class="num">3</span> Хто за що платив</h2>
+      <h2><span class="num">3</span> Хто за що платить</h2>
       <div class="assign-block">${assignRows}</div>
     </div>
   `;
@@ -1279,7 +1280,7 @@ function buyerItemBreakdown(bid){
           shareLabel = 'частками';
         }
       }else{
-        shareLabel = 'сума вручну';
+        shareLabel = 'вручну';
       }
       return { name: it.name, amount, shareLabel };
     });
