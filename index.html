@@ -245,6 +245,14 @@
     font-family:ui-monospace, 'SF Mono', Menlo, monospace;
     position:relative;
   }
+  .receipt-outer::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:rgba(0,0,0,0.22);
+    border-radius:6px;
+    z-index:-1;
+  }
   .receipt-inner{
     background:#fdfbf6;
     border-radius:6px 6px 0 0;
@@ -970,9 +978,10 @@ function renderReceiptDetails(r){
     <div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-val">${escapeHtml(val)}</span></div>
   `).join('');
 
-  const taxHtml = (r.taxGroups && r.taxGroups.length>0) ? `
+  const visibleTaxGroups = (r.taxGroups||[]).filter(tx => !(Math.abs(parseFloat(tx.rate)||0)<0.01 && Math.abs(tx.sum||0)<0.01));
+  const taxHtml = (visibleTaxGroups.length>0) ? `
     <div class="detail-subhead">Податкові групи</div>
-    ${r.taxGroups.map(tx=>`
+    ${visibleTaxGroups.map(tx=>`
       <div class="detail-row">
         <span class="detail-label">${escapeHtml(tx.label)}${tx.rate?(' · ставка '+escapeHtml(tx.rate)+'%'):''}</span>
         <span class="detail-val">${fmtMoney(tx.sum)}</span>
