@@ -9,6 +9,8 @@
   :root{
     --paper:#000000;
     --field:rgba(255,255,255,0.08);
+    --field-focus:rgba(255,255,255,0.1);
+    --row-tint:rgba(255,255,255,0.03);
     --ink:rgba(255,255,255,0.96);
     --ink-soft:rgba(255,255,255,0.68);
     --muted:rgba(255,255,255,0.46);
@@ -24,8 +26,27 @@
     --glass:rgba(255,255,255,0.07);
     --glass-border:rgba(255,255,255,0.14);
   }
+  body.light{
+    --paper:#f2f2f7;
+    --field:rgba(0,0,0,0.045);
+    --field-focus:rgba(0,0,0,0.06);
+    --row-tint:rgba(0,0,0,0.025);
+    --ink:rgba(0,0,0,0.92);
+    --ink-soft:rgba(0,0,0,0.62);
+    --muted:rgba(0,0,0,0.42);
+    --line:rgba(0,0,0,0.09);
+    --accent:#007aff;
+    --accent-dark:#0a5cc2;
+    --accent-soft:rgba(0,122,255,0.12);
+    --warn:#c76e00;
+    --warn-soft:rgba(255,159,10,0.14);
+    --danger:#d70015;
+    --danger-soft:rgba(255,69,58,0.12);
+    --glass:rgba(255,255,255,0.55);
+    --glass-border:rgba(0,0,0,0.07);
+  }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html{background:#000;}
+  html{background:#000;transition:background .25s ease;}
   body{
     margin:0;
     min-height:100vh;
@@ -37,6 +58,13 @@
     font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
     padding:36px 16px 90px;
     -webkit-font-smoothing:antialiased;
+    transition:background .25s ease, color .25s ease;
+  }
+  body.light{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(0,122,255,0.10), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(175,82,222,0.07), transparent 55%),
+      #f2f2f7;
   }
   .wrap{max-width:900px;margin:0 auto;}
   h1{
@@ -46,6 +74,26 @@
     margin:0 0 4px;
   }
   .subtitle{color:var(--muted);font-size:0.95rem;margin-bottom:28px;letter-spacing:-0.01em;}
+  .header-row{
+    display:flex;justify-content:space-between;align-items:center;gap:14px;
+    flex-wrap:wrap;
+    margin-bottom:4px;
+  }
+  .header-row h1{margin:0;}
+  .theme-toggle{
+    display:flex;gap:2px;
+    background:var(--field);
+    backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
+    border:1px solid var(--glass-border);
+    border-radius:980px;
+    padding:3px;
+    flex-shrink:0;
+  }
+  .theme-toggle button{
+    background:transparent;font-size:0.95rem;line-height:1;padding:8px 12px;
+  }
+  .theme-toggle button.active{background:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,0.3);}
   .card{
     background:var(--glass);
     backdrop-filter:blur(46px) saturate(200%);
@@ -68,6 +116,20 @@
     margin-bottom:20px;
     box-shadow:0 1px 0 rgba(255,255,255,0.08) inset, 0 20px 44px -20px rgba(0,0,0,0.65);
     transition:background .25s ease, backdrop-filter .25s ease, border-color .25s ease;
+  }
+  body.light .card{
+    --ink:rgba(0,0,0,0.93);
+    --ink-soft:rgba(0,0,0,0.66);
+    --muted:rgba(0,0,0,0.45);
+    --line:rgba(0,0,0,0.10);
+    --field:rgba(0,0,0,0.045);
+    --accent-soft:rgba(0,122,255,0.12);
+    --accent-dark:#0a5cc2;
+    --warn-soft:rgba(199,110,0,0.14);
+    --danger-soft:rgba(215,0,21,0.12);
+    --warn:#a35a00;
+    --danger:#d70015;
+    box-shadow:0 1px 0 rgba(255,255,255,0.6) inset, 0 20px 44px -20px rgba(0,0,0,0.16);
   }
   .card h2{
     font-size:1.08rem;
@@ -104,7 +166,7 @@
   }
   input[type=text]:focus, input[type=number]:focus, select:focus{
     border-color:var(--accent);
-    background:rgba(255,255,255,0.1);
+    background:var(--field-focus);
   }
   input[type=number]{width:92px;}
   button{
@@ -189,12 +251,11 @@
     padding:26px 24px 6px;
   }
   .receipt-tear{
-    --tooth:20px;
+    --tooth:18px;
     height:calc(var(--tooth) / 2);
     background:#fdfbf6;
     -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--tooth) calc(var(--tooth) / 2) repeat-x;
     mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--tooth) calc(var(--tooth) / 2) repeat-x;
-    margin-top: -1px;
   }
   .receipt-head{text-align:center;margin-bottom:14px;}
   .receipt-head .shop{font-size:0.78rem;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;}
@@ -288,7 +349,7 @@
   .assign-controls{flex:2 1 340px;min-width:280px;}
   .mode-toggle{
     display:flex;gap:2px;margin-top:8px;
-    background:rgba(255,255,255,0.07);
+    background:var(--field);
     border-radius:980px;
     padding:3px;
     width:fit-content;
@@ -345,7 +406,7 @@
   .buyer-detail-row:last-child{border-bottom:none;}
   .bd-name{color:var(--ink);flex:1 1 auto;min-width:0;}
   .bd-share{color:var(--muted);font-size:0.76rem;white-space:nowrap;flex:0 0 75px;text-align:right;}
-  .bd-amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:600;color:var(--ink);white-space:nowrap;flex:0 0 70px;text-align:right;}
+  .bd-amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:600;color:var(--ink);white-space:nowrap;flex:0 0 75px;text-align:right;}
   .result-total{
     background:var(--accent-soft);
     border:1px solid var(--accent);
@@ -361,13 +422,13 @@
     font-size:0.76rem;
     color:var(--ink-soft);
   }
-  .result-total .sum{font-size:1.05rem;color:#fff;font-weight:700;}
+  .result-total .sum{font-size:1.05rem;color:var(--ink);font-weight:700;}
   .result-detail{font-size:0.76rem;color:var(--muted);margin-top:3px;}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
   .history-item{
     display:flex;justify-content:space-between;align-items:center;
     padding:11px 15px;border-radius:16px;border:1px solid var(--line);margin-bottom:8px;font-size:0.85rem;
-    background:rgba(255,255,255,0.03);
+    background:var(--row-tint);
   }
   .history-item .hf{color:var(--muted);font-size:0.78rem;}
   .footnote{color:var(--muted);font-size:0.78rem;margin-top:10px;}
@@ -375,7 +436,13 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Розкладка чеку</h1>
+  <div class="header-row">
+    <h1>Розкладка чеку</h1>
+    <div class="theme-toggle" id="themeToggle">
+      <button class="active" data-mode="dark" onclick="setTheme('dark')" title="Темна тема">🌙</button>
+      <button data-mode="light" onclick="setTheme('light')" title="Світла тема">☀️</button>
+    </div>
+  </div>
   <div class="subtitle">Завантаж фіскальний чек (XML), познач, чиї це покупки — і одразу побачиш, скільки має віддати кожен.</div>
 
   <!-- BUYERS -->
@@ -1212,7 +1279,7 @@ function buyerItemBreakdown(bid){
           shareLabel = 'частками';
         }
       }else{
-        shareLabel = 'вручну';
+        shareLabel = 'сума вручну';
       }
       return { name: it.name, amount, shareLabel };
     });
@@ -1473,6 +1540,13 @@ function importState(file){
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function setTheme(mode){
+  document.body.classList.toggle('light', mode==='light');
+  document.querySelectorAll('#themeToggle button').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.mode===mode);
+  });
 }
 
 // drag & drop support
