@@ -606,14 +606,26 @@ function parseRqSchema(doc, fileName){
   const mEl = cEl.querySelector(':scope > M');
   const eEl = cEl.querySelector(':scope > E');
 
+  // Some PRRO models (e.g. Ukrposhta) print the receipt header/description as a series of
+  // free-text <L> lines instead of (or in addition to) a proper item <P NM="...">.
+  const headerLines = Array.from(cEl.querySelectorAll(':scope > L'))
+    .map(l => (l.textContent||'').trim())
+    .filter(Boolean);
+  const costLines = headerLines.filter(l => /^За .*:.*\d/.test(l));
+
   const items = products.map(p=>{
     const n = p.getAttribute('N');
-    const name = p.getAttribute('NM') || '(без назви)';
+    let name = p.getAttribute('NM') || '';
+    if(!name){
+      name = costLines.length>0 ? costLines.join('; ') : '(без назви)';
+    }
     const qty = parseInt(p.getAttribute('Q')||'0',10)/1000;
     const price = parseInt(p.getAttribute('PRC')||'0',10)/100;
     let sum = parseInt(p.getAttribute('SM')||'0',10)/100;
     const code = p.getAttribute('CD') || '';
     const disc = discounts.find(d=>{
+      const directNi = d.getAttribute('NI');
+      if(directNi) return directNi === n;
       const ni = d.querySelector('NI');
       return ni && ni.getAttribute('NI')===n;
     });
@@ -677,11 +689,15 @@ function parseRqSchema(doc, fileName){
   }
 
   // tax groups breakdown (from <E><TX .../></E>, or attributes directly on <E> for some models)
-  // Rate attributes come in two flavours depending on the PRRO/generator:
-  // already-formatted percent strings like "20.00", or scaled integers like "700" meaning 7.00%.
+  // Rate attributes come in a few flavours depending on the PRRO/generator:
+  // already-formatted percent strings like "20.00", plain integers meaning a literal percent
+  // like "20" (=20%), or scaled-by-100 integers like "700" (=7.00%) when the plain value would
+  // be an implausible VAT rate. Disambiguate by plausibility: real VAT/excise rates are ≤100%.
   function parseRate(raw){
     if(raw===null || raw===undefined || raw==='') return '';
-    return raw.includes('.') ? parseFloat(raw).toFixed(2) : (parseInt(raw,10)/100).toFixed(2);
+    if(raw.includes('.')) return parseFloat(raw).toFixed(2);
+    const n = parseInt(raw,10);
+    return (n<=100 ? n : n/100).toFixed(2);
   }
   function taxGroupFromNode(node){
     return {
@@ -726,7 +742,8 @@ function parseRqSchema(doc, fileName){
 
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod,
-    fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, taxGroups, verifyUrl
+    fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, taxGroups, verifyUrl,
+    headerLines
   };
 }
 
@@ -889,6 +906,8 @@ function renderReceipt(){
     </div>
   `).join('');
 
+  const totalDiscount = round2(r.items.reduce((a,it)=>a+(it.discount||0),0));
+
   const assignRows = r.items.map(it=>renderAssignRow(it)).join('');
   const detailsBlock = renderReceiptDetails(r);
 
@@ -902,6 +921,7 @@ function renderReceipt(){
             <div class="meta">${r.dateStr||''}${r.payMethod?(' · '+escapeHtml(r.payMethod)):''}</div>
           </div>
           ${lines}
+          ${totalDiscount>0 ? `<div class="rline" style="border-top:2px solid var(--ink);margin-top:4px;padding-top:15px;"><span class="r-name r-disc" style="font-weight:500;font-size:0.82rem;">Знижка</span><span class="r-sum r-disc" style="font-weight:700;font-size:0.82rem;">-${fmtMoney(totalDiscount)}</span></div>` : ''}
           <div class="receipt-total"><span>РАЗОМ</span><span>${fmtMoney(r.totalSum)}</span></div>
         </div>
         <div class="receipt-tear"></div>
@@ -989,7 +1009,13 @@ function renderReceiptDetails(r){
     `).join('')}
   ` : '';
 
-  if(rows.length===0 && !taxHtml && !r.verifyUrl) return '';
+  const linesToShow = (r.headerLines||[]).filter(l => !/^=+$/.test(l));
+  const linesHtml = linesToShow.length>0 ? `
+    <div class="detail-subhead">Додаткові рядки чека</div>
+    <div style="font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-size:0.78rem;color:var(--ink-soft);line-height:1.7;white-space:pre-wrap;">${linesToShow.map(escapeHtml).join('\n')}</div>
+  ` : '';
+
+  if(rows.length===0 && !taxHtml && !linesHtml && !r.verifyUrl) return '';
 
   const qrHtml = r.verifyUrl ? `
     <div class="receipt-qr">
@@ -1006,6 +1032,7 @@ function renderReceiptDetails(r){
       <div class="detail-grid">
         ${rowsHtml}
         ${taxHtml}
+        ${linesHtml}
         ${qrHtml}
       </div>
     </details>
