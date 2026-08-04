@@ -921,7 +921,7 @@ function renderReceipt(){
             <div class="meta">${r.dateStr||''}${r.payMethod?(' · '+escapeHtml(r.payMethod)):''}</div>
           </div>
           ${lines}
-          ${totalDiscount>0 ? `<div class="rline" style="border-top:2px solid var(--line);margin-top:4px;"><span class="r-name r-disc" style="font-weight:500;font-size:0.82rem;">ЗНИЖКА</span><span class="r-sum r-disc" style="font-weight:700;font-size:0.82rem;">-${fmtMoney(totalDiscount)}</span></div>` : ''}
+          ${totalDiscount>0 ? `<div class="rline" style="border-top:2px solid var(--line);margin-top:4px;"><span class="r-name r-disc" style="font-weight:500;font-size:0.82rem;">СУМА ЗНИЖКИ <span class="r-qty">(в т.ч.)</span></span><span class="r-sum r-disc" style="font-weight:700;font-size:0.82rem;">${fmtMoney(totalDiscount)}</span></div>` : ''}
           <div class="receipt-total"><span>РАЗОМ</span><span>${fmtMoney(r.totalSum)}</span></div>
         </div>
         <div class="receipt-tear"></div>
