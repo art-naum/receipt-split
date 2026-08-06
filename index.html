@@ -751,8 +751,7 @@ function parseRqSchema(doc, fileName){
 function parseCheckSchema(doc, fileName){
   const head = doc.querySelector('CHECKHEAD');
   const totalEl = doc.querySelector('CHECKTOTAL');
-  const payRow = doc.querySelector('CHECKPAY > ROW');
-  const paySysRow = payRow ? payRow.querySelector('PAYSYS > ROW') : null;
+  const payRows = Array.from(doc.querySelectorAll('CHECKPAY > ROW'));
   const taxRows = Array.from(doc.querySelectorAll('CHECKTAX > ROW'));
   const bodyRows = Array.from(doc.querySelectorAll('CHECKBODY > ROW'));
 
@@ -804,17 +803,21 @@ function parseCheckSchema(doc, fileName){
   const ipn = textOf(head,'IPN');
   const docNumber = textOf(head,'ORDERNUM');
   const cashDeskNum = textOf(head,'CASHDESKNUM');
-  const orgName = textOf(head,'ORGNM');
+  let orgName = textOf(head,'ORGNM');
+  if(orgName && tnDigits.length===10 && !/^ФОП\s/i.test(orgName)){
+    orgName = 'ФОП ' + orgName;
+  }
   const pointName = textOf(head,'POINTNM');
   const pointAddr = textOf(head,'POINTADDR');
   const cashier = textOf(head,'CASHIER');
 
-  let payment = null;
-  if(payRow){
-    const provided = numOf(payRow,'PROVIDED');
-    const paySum = numOf(payRow,'SUM');
-    payment = {
-      label: textOf(payRow,'PAYFORMNM'),
+  const payments = payRows.map(row=>{
+    const paySysRow = row.querySelector('PAYSYS > ROW');
+    const provided = numOf(row,'PROVIDED');
+    const paySum = numOf(row,'SUM');
+    return {
+      label: textOf(row,'PAYFORMNM'),
+      sum: paySum,
       system: textOf(paySysRow,'NAME'),
       cardMasked: textOf(paySysRow,'EPZDETAILS'),
       authCode: textOf(paySysRow,'AUTHCD'),
@@ -825,7 +828,8 @@ function parseCheckSchema(doc, fileName){
       provided: provided>0 ? provided : null,
       change: (provided>0 && provided>paySum) ? Math.round((provided-paySum)*100)/100 : null
     };
-  }
+  });
+  const payment = payments[0] || null;
 
   const taxGroups = taxRows.map(row=>{
     const name = textOf(row,'NAME') || 'ПДВ';
@@ -880,9 +884,11 @@ function parseCheckSchema(doc, fileName){
     if(!payment.system) payment.system = grab('Платіжна система:');
   }
 
+  const payMethodCombined = payments.map(p=>p.label).filter(Boolean).join(' + ');
+
   return {
-    fileName, items, totalSum, checkNo, dateStr, payMethod: payment?payment.label:'',
-    fn, tn, tnLabel, zn:'', docNumber, shiftSerial:'', payment, taxGroups, verifyUrl,
+    fileName, items, totalSum, checkNo, dateStr, payMethod: payMethodCombined,
+    fn, tn, tnLabel, zn:'', docNumber, shiftSerial:'', payment, payments, taxGroups, verifyUrl,
     ipn, orgName, pointName, pointAddr, cashier, cashDeskNum,
     recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz
   };
@@ -958,45 +964,75 @@ function ukGroupLetter(groupNum){
   return (idx>=0 && alphabet[idx]) ? alphabet[idx] : groupNum;
 }
 function renderReceiptDetails(r){
-  const rows = [];
-  if(r.orgName) rows.push(['Продавець', r.orgName]);
-  if(r.fn) rows.push(['ФН ПРРО', r.fn]);
-  if(r.tn) rows.push([r.tnLabel || 'ІД продавця', r.tn]);
-  if(r.ipn) rows.push(['ІПН продавця', r.ipn]);
-  if(r.zn) rows.push(['Заводський номер', r.zn]);
-  if(r.pointName) rows.push(['Точка продажу', r.pointName]);
-  if(r.pointAddr) rows.push(['Адреса', r.pointAddr]);
-  if(r.cashier) rows.push(['Касир', r.cashier]);
-  if(r.cashDeskNum) rows.push(['№ каси', r.cashDeskNum]);
-  if(r.docNumber) rows.push(['№ документа', r.docNumber]);
-  if(r.shiftSerial) rows.push(['Серійний номер', r.shiftSerial]);
-  if(r.checkNo) rows.push(['№ чека', r.checkNo]);
-  if(r.dateStr) rows.push(['Дата та час', r.dateStr]);
+  const sellerRows = [];
+  if(r.orgName) sellerRows.push(['Продавець', r.orgName]);
+  if(r.pointName) sellerRows.push(['Точка продажу', r.pointName]);
+  if(r.pointAddr) sellerRows.push(['Адреса', r.pointAddr]);
+  if(r.tn) sellerRows.push([r.tnLabel || 'ІД продавця', r.tn]);
+  if(r.ipn) sellerRows.push(['ІПН продавця', r.ipn]);
 
-  if(r.payment){
+  const receiptRows = [];
+  if(r.fn) receiptRows.push(['ФН ПРРО', r.fn]);
+  if(r.checkNo) receiptRows.push(['№ чека', r.checkNo]);
+  if(r.dateStr) receiptRows.push(['Дата та час', r.dateStr]);
+  if(r.cashier) receiptRows.push(['Касир', r.cashier]);
+  if(r.zn) receiptRows.push(['Заводський номер', r.zn]);
+  if(r.cashDeskNum) receiptRows.push(['№ каси', r.cashDeskNum]);
+  if(r.docNumber) receiptRows.push(['№ документа', r.docNumber]);
+  if(r.shiftSerial) receiptRows.push(['Серійний номер', r.shiftSerial]);
+  if(r.items && r.items.length>0) receiptRows.push(['Кількість артикулів (позицій)', String(r.items.length)]);
+
+  const paymentRows = [];
+  if(r.payments && r.payments.length>1){
+    r.payments.forEach((p,idx)=>{
+      const n = idx+1;
+      if(p.label) paymentRows.push([`Спосіб оплати ${n}`, p.label + (p.sum!=null ? ` — ${fmtMoney(p.sum)}` : '')]);
+      if(p.system) paymentRows.push([`Платіжна система ${n}`, p.system]);
+      if(p.bankName) paymentRows.push([`Банк-еквайр ${n}`, p.bankName]);
+      if(p.cardMasked) paymentRows.push([`Картка ${n}`, p.cardMasked]);
+      if(p.authCode) paymentRows.push([`Код авторизації ${n}`, p.authCode]);
+      if(p.rrn) paymentRows.push([`RRN ${n}`, p.rrn]);
+      if(p.terminal) paymentRows.push([`Термінал ${n}`, p.terminal]);
+      if(p.provided!=null) paymentRows.push([`Отримано готівкою ${n}`, fmtMoney(p.provided)]);
+      if(p.change!=null) paymentRows.push([`Решта ${n}`, fmtMoney(p.change)]);
+    });
+  }else if(r.payment){
     const p = r.payment;
-    if(p.label) rows.push(['Спосіб оплати', p.label]);
-    if(p.system) rows.push(['Платіжна система', p.system]);
-    if(p.bankName) rows.push(['Банк-еквайр', p.bankName]);
-    if(p.operation) rows.push(['Вид операції', p.operation]);
-    if(p.cardMasked) rows.push(['Картка', p.cardMasked]);
-    if(p.authCode) rows.push(['Код авторизації', p.authCode]);
-    if(p.rrn) rows.push(['RRN', p.rrn]);
-    if(p.terminal) rows.push(['Термінал', p.terminal]);
-    if(p.provided!=null) rows.push(['Отримано готівкою', fmtMoney(p.provided)]);
-    if(p.change!=null) rows.push(['Решта', fmtMoney(p.change)]);
+    if(p.label) paymentRows.push(['Спосіб оплати', p.label]);
+    if(p.system) paymentRows.push(['Платіжна система', p.system]);
+    if(p.bankName) paymentRows.push(['Банк-еквайр', p.bankName]);
+    if(p.operation) paymentRows.push(['Вид операції', p.operation]);
+    if(p.cardMasked) paymentRows.push(['Картка', p.cardMasked]);
+    if(p.authCode) paymentRows.push(['Код авторизації', p.authCode]);
+    if(p.rrn) paymentRows.push(['RRN', p.rrn]);
+    if(p.terminal) paymentRows.push(['Термінал', p.terminal]);
+    if(p.provided!=null) paymentRows.push(['Отримано готівкою', fmtMoney(p.provided)]);
+    if(p.change!=null) paymentRows.push(['Решта', fmtMoney(p.change)]);
   }
-  if(r.payerNm) rows.push(['Платник', r.payerNm]);
-  if(r.phone) rows.push(['Телефон платника', r.phone]);
-  if(r.recipientNm) rows.push(['Отримувач переказу', r.recipientNm]);
-  if(r.recipientIpn) rows.push(['ІПН отримувача', r.recipientIpn]);
-  if(r.bankNm) rows.push(['Банк отримувача', r.bankNm]);
-  if(r.bankRs) rows.push(['IBAN отримувача', r.bankRs]);
-  if(r.epz) rows.push(['ЕПЗ', r.epz]);
+  if(r.payerNm) paymentRows.push(['Платник', r.payerNm]);
+  if(r.phone) paymentRows.push(['Телефон платника', r.phone]);
+  if(r.recipientNm) paymentRows.push(['Отримувач переказу', r.recipientNm]);
+  if(r.recipientIpn) paymentRows.push(['ІПН отримувача', r.recipientIpn]);
+  if(r.bankNm) paymentRows.push(['Банк отримувача', r.bankNm]);
+  if(r.bankRs) paymentRows.push(['IBAN отримувача', r.bankRs]);
+  if(r.epz) paymentRows.push(['ЕПЗ', r.epz]);
 
-  const rowsHtml = rows.map(([label,val])=>`
-    <div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-val">${escapeHtml(val)}</span></div>
-  `).join('');
+  const rowGroupHtml = (label, list) => list.length>0 ? `
+    <div class="detail-subhead">${escapeHtml(label)}</div>
+    ${list.map(([l,val])=>`
+      <div class="detail-row"><span class="detail-label">${escapeHtml(l)}</span><span class="detail-val">${escapeHtml(val)}</span></div>
+    `).join('')}
+  ` : '';
+
+  const sellerHtml = rowGroupHtml('Інформація про продавця', sellerRows);
+  const receiptRowsHtml = rowGroupHtml('Інформація про чек', receiptRows);
+
+  const paymentHtml = paymentRows.length>0 ? `
+    <div class="detail-subhead">Інформація про оплату</div>
+    ${paymentRows.map(([label,val])=>`
+      <div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-val">${escapeHtml(val)}</span></div>
+    `).join('')}
+  ` : '';
 
   const visibleTaxGroups = r.taxGroups || [];
   const taxHtml = (visibleTaxGroups.length>0) ? `
@@ -1015,7 +1051,7 @@ function renderReceiptDetails(r){
     <div style="font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-size:0.78rem;color:var(--muted);line-height:1.7;white-space:pre-wrap; padding: 6px 0 8px 0; border-bottom: 1px solid var(--line)">${linesToShow.map(escapeHtml).join('\n')}</div>
   ` : '';
 
-  if(rows.length===0 && !taxHtml && !linesHtml && !r.verifyUrl) return '';
+  if(sellerRows.length===0 && receiptRows.length===0 && !paymentHtml && !taxHtml && !linesHtml && !r.verifyUrl) return '';
 
   const qrHtml = r.verifyUrl ? `
     <div class="receipt-qr">
@@ -1030,7 +1066,9 @@ function renderReceiptDetails(r){
     <details class="receipt-details">
       <summary>Усі деталі чека</summary>
       <div class="detail-grid">
-        ${rowsHtml}
+        ${sellerHtml}
+        ${receiptRowsHtml}
+        ${paymentHtml}
         ${taxHtml}
         ${linesHtml}
         ${qrHtml}
