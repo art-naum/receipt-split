@@ -927,8 +927,8 @@ function renderReceipt(){
             <div class="meta">${r.dateStr||''}${r.payMethod?(' · '+escapeHtml(r.payMethod)):''}</div>
           </div>
           ${lines}
-          ${totalDiscount>0 ? `<div class="rline" style="border-top:1px solid var(--line);margin-top:-1px;"><span class="r-name r-disc" style="font-weight:500;font-size:0.82rem;"><span class="r-qty">В т.ч.</span> знижка</span><span class="r-sum r-disc" style="font-weight:700;font-size:0.82rem;">${fmtMoney(totalDiscount)}</span></div>` : ''}
           <div class="receipt-total"><span>РАЗОМ</span><span>${fmtMoney(r.totalSum)}</span></div>
+          ${totalDiscount>0 ? `<div class="rline" style="margin-top:-15px;"><span class="r-name r-disc" style="font-weight:500;font-size:0.82rem;"><span class="r-qty">В т.ч.</span> знижка</span><span class="r-sum r-disc" style="font-weight:700;font-size:0.82rem;">${fmtMoney(totalDiscount)}</span></div>` : ''}
         </div>
         <div class="receipt-tear"></div>
       </div>
@@ -969,7 +969,7 @@ function renderReceiptDetails(r){
   if(r.pointName) sellerRows.push(['Точка продажу', r.pointName]);
   if(r.pointAddr) sellerRows.push(['Адреса', r.pointAddr]);
   if(r.tn) sellerRows.push([r.tnLabel || 'ІД продавця', r.tn]);
-  if(r.ipn) sellerRows.push(['ІПН продавця', r.ipn]);
+  if(r.ipn) sellerRows.push(['ПН продавця', r.ipn]);
 
   const receiptRows = [];
   if(r.fn) receiptRows.push(['ФН ПРРО', r.fn]);
@@ -980,7 +980,7 @@ function renderReceiptDetails(r){
   if(r.cashDeskNum) receiptRows.push(['№ каси', r.cashDeskNum]);
   if(r.docNumber) receiptRows.push(['№ документа', r.docNumber]);
   if(r.shiftSerial) receiptRows.push(['Серійний номер', r.shiftSerial]);
-  if(r.items && r.items.length>0) receiptRows.push(['Кількість артикулів (позицій)', String(r.items.length)]);
+  if(r.items && r.items.length>0) receiptRows.push(['Артикулів в чеку', String(r.items.length)]);
 
   const paymentRows = [];
   if(r.payments && r.payments.length>1){
@@ -1012,7 +1012,7 @@ function renderReceiptDetails(r){
   if(r.payerNm) paymentRows.push(['Платник', r.payerNm]);
   if(r.phone) paymentRows.push(['Телефон платника', r.phone]);
   if(r.recipientNm) paymentRows.push(['Отримувач переказу', r.recipientNm]);
-  if(r.recipientIpn) paymentRows.push(['ІПН отримувача', r.recipientIpn]);
+  if(r.recipientIpn) paymentRows.push(['ЄДРПОУ отримувача', r.recipientIpn]);
   if(r.bankNm) paymentRows.push(['Банк отримувача', r.bankNm]);
   if(r.bankRs) paymentRows.push(['IBAN отримувача', r.bankRs]);
   if(r.epz) paymentRows.push(['ЕПЗ', r.epz]);
