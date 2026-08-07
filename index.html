@@ -770,11 +770,13 @@ function parseCheckSchema(doc, fileName){
     const amount = numOf(row,'AMOUNT');
     const price = numOf(row,'PRICE');
     const cost = numOf(row,'COST');
+    const discountSum = numOf(row,'DISCOUNTSUM');
     const qty = amount>0 ? amount : 1;
     const unitPrice = price>0 ? price : cost;
-    const sum = cost>0 ? cost : Math.round(qty*unitPrice*100)/100;
+    let sum = cost>0 ? cost : Math.round(qty*unitPrice*100)/100;
+    if(discountSum>0) sum = Math.round((sum-discountSum)*100)/100;
     return {
-      id: uid('i'), n: String(idx+1), name, qty, price: unitPrice, sum, discount: 0, code: '',
+      id: uid('i'), n: String(idx+1), name, qty, price: unitPrice, sum, discount: discountSum, code: '',
       buyerIds: [], mode: 'equal', manualType: 'amount', manualValues: {}
     };
   });
@@ -886,10 +888,16 @@ function parseCheckSchema(doc, fileName){
 
   const payMethodCombined = payments.map(p=>p.label).filter(Boolean).join(' + ');
 
+  const zn = textOf(head,'CASHFACTORYNUM');
+  const commentText = textOf(head,'COMMENT');
+  const headerLines = commentText
+    ? commentText.split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
+    : [];
+
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod: payMethodCombined,
-    fn, tn, tnLabel, zn:'', docNumber, shiftSerial:'', payment, payments, taxGroups, verifyUrl,
-    ipn, orgName, pointName, pointAddr, cashier, cashDeskNum,
+    fn, tn, tnLabel, zn, docNumber, shiftSerial:'', payment, payments, taxGroups, verifyUrl,
+    ipn, orgName, pointName, pointAddr, cashier, cashDeskNum, headerLines,
     recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz
   };
 }
