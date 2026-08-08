@@ -608,10 +608,13 @@ function parseRqSchema(doc, fileName){
 
   // Some PRRO models (e.g. Ukrposhta) print the receipt header/description as a series of
   // free-text <L> lines instead of (or in addition to) a proper item <P NM="...">.
-  const headerLines = Array.from(cEl.querySelectorAll(':scope > L'))
+  const lLines = Array.from(cEl.querySelectorAll(':scope > L'))
     .map(l => (l.textContent||'').trim())
     .filter(Boolean);
-  const costLines = headerLines.filter(l => /^За .*:.*\d/.test(l));
+  const commentText = (doc.querySelector('DAT > COMMENT') ? doc.querySelector('DAT > COMMENT').textContent : '') || '';
+  const commentLines = commentText.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const headerLines = [...lLines, ...commentLines];
+  const costLines = lLines.filter(l => /^За .*:.*\d/.test(l));
 
   const items = products.map(p=>{
     const n = p.getAttribute('N');
