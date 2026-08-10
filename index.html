@@ -26,25 +26,6 @@
     --glass:rgba(255,255,255,0.07);
     --glass-border:rgba(255,255,255,0.14);
   }
-  body.light{
-    --paper:#f2f2f7;
-    --field:rgba(0,0,0,0.045);
-    --field-focus:rgba(0,0,0,0.06);
-    --row-tint:rgba(0,0,0,0.025);
-    --ink:rgba(0,0,0,0.92);
-    --ink-soft:rgba(0,0,0,0.62);
-    --muted:rgba(0,0,0,0.42);
-    --line:rgba(0,0,0,0.09);
-    --accent:#007aff;
-    --accent-dark:#0a5cc2;
-    --accent-soft:rgba(0,122,255,0.12);
-    --warn:#c76e00;
-    --warn-soft:rgba(255,159,10,0.14);
-    --danger:#d70015;
-    --danger-soft:rgba(255,69,58,0.12);
-    --glass:rgba(255,255,255,0.55);
-    --glass-border:rgba(0,0,0,0.07);
-  }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html{background:#000;transition:background .25s ease;}
   body{
@@ -58,13 +39,6 @@
     font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
     padding:36px 16px 90px;
     -webkit-font-smoothing:antialiased;
-    transition:background .25s ease, color .25s ease;
-  }
-  body.light{
-    background:
-      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(0,122,255,0.10), transparent 60%),
-      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(175,82,222,0.07), transparent 55%),
-      #f2f2f7;
   }
   .wrap{max-width:900px;margin:0 auto;}
   h1{
@@ -115,21 +89,6 @@
     padding:22px 22px;
     margin-bottom:20px;
     box-shadow:0 1px 0 rgba(255,255,255,0.08) inset, 0 20px 44px -20px rgba(0,0,0,0.65);
-    transition:background .25s ease, backdrop-filter .25s ease, border-color .25s ease;
-  }
-  body.light .card{
-    --ink:rgba(0,0,0,0.93);
-    --ink-soft:rgba(0,0,0,0.66);
-    --muted:rgba(0,0,0,0.45);
-    --line:rgba(0,0,0,0.10);
-    --field:rgba(0,0,0,0.045);
-    --accent-soft:rgba(0,122,255,0.12);
-    --accent-dark:#0a5cc2;
-    --warn-soft:rgba(199,110,0,0.14);
-    --danger-soft:rgba(215,0,21,0.12);
-    --warn:#a35a00;
-    --danger:#d70015;
-    box-shadow:0 1px 0 rgba(255,255,255,0.6) inset, 0 20px 44px -20px rgba(0,0,0,0.16);
   }
   .card h2{
     font-size:1.08rem;
@@ -447,10 +406,6 @@
 <div class="wrap">
   <div class="header-row">
     <h1>Розкладка чеку</h1>
-    <div class="theme-toggle" id="themeToggle">
-      <button class="active" data-mode="dark" onclick="setTheme('dark')" title="Темна тема">🌙</button>
-      <button data-mode="light" onclick="setTheme('light')" title="Світла тема">☀️</button>
-    </div>
   </div>
   <div class="subtitle">Завантаж фіскальний чек (XML), познач, чиї це покупки — і одразу побачиш, скільки має віддати кожен.</div>
 
@@ -768,6 +723,9 @@ function parseCheckSchema(doc, fileName){
     return t ? (parseFloat(t)||0) : 0;
   }
 
+  // CHECKTOTAL may contain a receipt-level discount which is NOT repeated
+  // in CHECKBODY rows. In that case COST stays at the original (pre-discount)
+  // amount, while CHECKTOTAL/SUM contains the final amount.
   const items = bodyRows.map((row, idx)=>{
     const name = textOf(row,'NAME') || '(без назви)';
     const amount = numOf(row,'AMOUNT');
@@ -776,15 +734,58 @@ function parseCheckSchema(doc, fileName){
     const discountSum = numOf(row,'DISCOUNTSUM');
     const qty = amount>0 ? amount : 1;
     const unitPrice = price>0 ? price : cost;
-    let sum = cost>0 ? cost : Math.round(qty*unitPrice*100)/100;
-    if(discountSum>0) sum = Math.round((sum-discountSum)*100)/100;
+    const grossSum = cost>0 ? cost : Math.round(qty*unitPrice*100)/100;
+    const sum = discountSum>0
+      ? Math.round((grossSum-discountSum)*100)/100
+      : grossSum;
     return {
-      id: uid('i'), n: String(idx+1), name, qty, price: unitPrice, sum, discount: discountSum, code: '',
-      buyerIds: [], mode: 'equal', manualType: 'amount', manualValues: {}
+      id: uid('i'), n: String(idx+1), name, qty, price: unitPrice,
+      sum, discount: discountSum, code: '',
+      buyerIds: [], mode: 'equal', manualType: 'amount', manualValues: {},
+      _grossSum: grossSum
     };
   });
 
   const totalSum = numOf(totalEl,'SUM') || items.reduce((a,i)=>a+i.sum,0);
+  const grossTotal = numOf(totalEl,'SUBCHECK');
+  const receiptDiscount = numOf(totalEl,'DISCOUNTSUM');
+  const itemDiscountTotal = round2(items.reduce((a,i)=>a+(i.discount||0),0));
+
+  // If the receipt-level discount is larger than the discounts explicitly
+  // attached to individual rows, allocate the missing part proportionally.
+  let globalDiscount = round2(Math.max(0, receiptDiscount - itemDiscountTotal));
+  if(globalDiscount > 0.009 && items.length > 0){
+    const baseTotal = items.reduce((a,i)=>a+i._grossSum,0);
+    const referenceGross = grossTotal > 0 ? grossTotal : round2(totalSum + receiptDiscount);
+    const discountBase = baseTotal > 0 ? baseTotal : referenceGross;
+
+    if(discountBase > 0){
+      let allocated = 0;
+      items.forEach((item, idx)=>{
+        if(idx === items.length-1){
+          item.discount = round2((item.discount||0) + (globalDiscount - allocated));
+        }else{
+          const part = Math.floor((globalDiscount * item._grossSum / discountBase) * 100) / 100;
+          item.discount = round2((item.discount||0) + part);
+          allocated += part;
+        }
+        item.sum = round2(item._grossSum - item.discount);
+      });
+    }
+  }
+
+  // Reconcile cent rounding to the fiscal total.
+  if(globalDiscount > 0.009){
+    const calculated = round2(items.reduce((a,i)=>a+i.sum,0));
+    const diff = round2(totalSum - calculated);
+    if(Math.abs(diff) >= 0.01){
+      const last = items[items.length-1];
+      last.sum = round2(last.sum + diff);
+      last.discount = round2(last._grossSum - last.sum);
+    }
+  }
+
+  items.forEach(item=>delete item._grossSum);
 
   const orderDate = textOf(head,'ORDERDATE'); // DDMMYYYY
   const orderTime = textOf(head,'ORDERTIME'); // HHMMSS
@@ -1628,12 +1629,6 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function setTheme(mode){
-  document.body.classList.toggle('light', mode==='light');
-  document.querySelectorAll('#themeToggle button').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.mode===mode);
-  });
-}
 
 // drag & drop support
 const zone = document.getElementById('uploadZone');
