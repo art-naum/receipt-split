@@ -1164,7 +1164,7 @@ function renderAssignRow(it){
     <div class="assign-row">
       <div class="assign-item-name">
         <span class="nm">${escapeHtml(it.name)}</span>
-        <span class="sub">${fmtQty(it.qty)} × ${fmtMoney(it.price)} = <strong>${fmtMoney(it.sum)}${it.taxGroup?` ${escapeHtml(it.taxGroup)}`:''}</strong></span>
+        <span class="sub">${fmtQty(it.qty)} × ${fmtMoney(it.price)} = <strong>${fmtMoney(it.sum)}</strong></span>
         ${it.discount>0 ? `<span class="sub r-disc">знижка ${fmtMoney(it.discount)}</span>` : ''}
       </div>
       <div class="assign-controls">
