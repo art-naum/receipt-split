@@ -749,6 +749,7 @@ function parseCheckSchema(doc, fileName){
   const totalSum = numOf(totalEl,'SUM') || items.reduce((a,i)=>a+i.sum,0);
   const grossTotal = numOf(totalEl,'SUBCHECK');
   const receiptDiscount = numOf(totalEl,'DISCOUNTSUM');
+  const receiptDiscountPercent = numOf(totalEl,'DISCOUNTPERCENT');
   const itemDiscountTotal = round2(items.reduce((a,i)=>a+(i.discount||0),0));
 
   // If the receipt-level discount is larger than the discounts explicitly
@@ -901,6 +902,7 @@ function parseCheckSchema(doc, fileName){
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod: payMethodCombined,
     fn, tn, tnLabel, zn, docNumber, shiftSerial:'', payment, payments, taxGroups, verifyUrl,
+    discountPercent: receiptDiscountPercent,
     ipn, orgName, pointName, pointAddr, cashier, cashDeskNum, headerLines,
     recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz
   };
@@ -925,6 +927,9 @@ function renderReceipt(){
   `).join('');
 
   const totalDiscount = round2(r.items.reduce((a,it)=>a+(it.discount||0),0));
+  const discountLabel = (r.discountPercent!=null && Number(r.discountPercent)>0)
+    ? `В т.ч. знижка (${Number(r.discountPercent).toFixed(2).replace(/\.00$/, '')}%)`
+    : 'В т.ч. знижка';
 
   const assignRows = r.items.map(it=>renderAssignRow(it)).join('');
   const detailsBlock = renderReceiptDetails(r);
@@ -940,7 +945,7 @@ function renderReceipt(){
           </div>
           ${lines}
           <div class="receipt-total"><span>РАЗОМ</span><span>${fmtMoney(r.totalSum)}</span></div>
-          ${totalDiscount>0 ? `<div class="rline" style="margin-top:-15px;"><span class="r-name r-disc" style="font-weight:500;font-size:0.82rem;"><span class="r-qty">В т.ч.</span> знижка</span><span class="r-sum r-disc" style="font-weight:700;font-size:0.82rem;">${fmtMoney(totalDiscount)}</span></div>` : ''}
+          ${totalDiscount>0 ? `<div class="rline" style="margin-top:-15px;"><span class="r-name r-disc" style="font-weight:500;font-size:0.82rem;"><span>${escapeHtml(discountLabel)}</span></span><span class="r-sum r-disc" style="font-weight:700;font-size:0.82rem;">${fmtMoney(totalDiscount)}</span></div>` : ''}
         </div>
         <div class="receipt-tear"></div>
       </div>
