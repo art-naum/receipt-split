@@ -154,7 +154,7 @@
   }
   .chip .del{opacity:.6;font-weight:700;}
   .chip .del:hover{opacity:1;}
-  .buyer-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .buyer-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
   .empty{
     color:var(--muted);
     font-size:0.9rem;
@@ -388,7 +388,7 @@
   .balance-row .amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:700;font-size:1.0rem;}
   .balance-row .amt.pos{color:#32d74b;}
   .balance-row .amt.neg{color:var(--danger);}
-  .balance-row .tag{font-size:0.72rem;color:var(--muted);font-weight:500;margin-left:8px;}
+  .balance-row .tag{font-size:0.72rem;color:var(--muted);font-weight:500;margin-right:8px;}
   .transfer-row{
     display:flex;justify-content:space-between;align-items:center;gap:10px;
     padding:11px 16px;
@@ -418,11 +418,11 @@
   <!-- BUYERS -->
   <div class="card">
     <h2><span class="num">1</span> Покупці</h2>
-    <div class="buyer-list" id="buyerList"></div>
     <div class="row">
       <input type="text" id="newBuyerName" placeholder="Ім'я покупця" style="min-width:200px;" onkeydown="if(event.key==='Enter'){ addBuyer(); }" oninput="capitalizeFirst(this)">
       <button class="btn-primary" onclick="addBuyer()">Додати</button>
     </div>
+    <div class="buyer-list" id="buyerList"></div>
   </div>
 
   <!-- UPLOAD -->
@@ -471,6 +471,9 @@ function round2(n){
 }
 function fmtMoney(n){
   return round2(n).toFixed(2).replace('.', ',') + ' ₴';
+}
+function fmtMoneyPlain(n){
+  return round2(n).toFixed(2).replace('.', ',');
 }
 function fmtQty(n){
   let s = n.toFixed(3);
@@ -568,7 +571,7 @@ function removeBuyer(id){
 function renderBuyers(){
   const el = document.getElementById('buyerList');
   if(state.buyers.length===0){
-    el.innerHTML = '<div class="empty">Додай хоча б одного покупця нижче</div>';
+    el.innerHTML = '<div class="empty">Додай хоча б одного покупця вище</div>';
   }else{
     el.innerHTML = state.buyers.map(b=>`
       <span class="chip">${escapeHtml(b.name)} <span class="del" onclick="removeBuyer('${b.id}')">✕</span></span>
@@ -967,8 +970,8 @@ function renderReceipt(){
   const lines = r.items.map(it=>`
     <div class="rline">
       <span class="r-name">${escapeHtml(it.name)}</span>
-      <span class="r-qty">${fmtQty(it.qty)} × ${fmtMoney(it.price)}${it.discount>0?`<br><span class="r-disc">знижка ${fmtMoney(it.discount)}</span>`:''}</span>
-      <span class="r-sum">${fmtMoney(it.sum)}${itemTaxGroupLetter(it)?` <span class="r-tax-group">${escapeHtml(itemTaxGroupLetter(it))}</span>`:''}</span>
+      <span class="r-qty">${fmtQty(it.qty)} × ${fmtMoneyPlain(it.price)}${it.discount>0?`<br><span class="r-disc">знижка ${fmtMoneyPlain(it.discount)}</span>`:''}</span>
+      <span class="r-sum">${fmtMoneyPlain(it.sum)}${itemTaxGroupLetter(it)?` <span class="r-tax-group">${escapeHtml(itemTaxGroupLetter(it))}</span>`:''}</span>
     </div>
   `).join('');
 
@@ -1203,6 +1206,13 @@ function setPaidAmount(buyerId, value){
   const p = r.paidBy.find(x=>x.buyerId===buyerId);
   if(!p) return;
   p.amount = value;
+
+  // With exactly two payers there's only one way to split the total, so the
+  // second field balances itself instead of making the user correct it by hand.
+  if(r.paidBy.length===2){
+    const other = r.paidBy.find(x=>x.buyerId!==buyerId);
+    if(other) other.amount = round2(r.totalSum - (parseFloat(value)||0));
+  }
 
   const fieldId = `pv_${buyerId}`;
   const active = document.activeElement;
@@ -1444,6 +1454,16 @@ function setManualValue(itemId, buyerId, value){
   if(!it) return;
   it.manualValues[buyerId] = value;
 
+  // With exactly two people assigned to "% вручну" / "₴ вручну", there's only one
+  // way to split what's left, so the second field balances itself automatically.
+  if(it.buyerIds.length===2 && (it.manualType==='amount' || it.manualType==='percent')){
+    const otherBid = it.buyerIds.find(b=>b!==buyerId);
+    if(otherBid){
+      const total = it.manualType==='percent' ? 100 : it.sum;
+      it.manualValues[otherBid] = round2(total - (parseFloat(value)||0));
+    }
+  }
+
   const fieldId = `mv_${itemId}_${buyerId}`;
   const active = document.activeElement;
   const wasFocused = active && active.id === fieldId;
@@ -1619,7 +1639,7 @@ function renderSettlementCard(){
     return `
       <div class="balance-row">
         <span class="name">${escapeHtml(b.name)}</span>
-        <span><span class="amt ${cls}">${bal>0?'+':''}${fmtMoney(bal)}</span><span class="tag">${tag}</span></span>
+        <span><span class="tag">${tag}</span><span class="amt ${cls}">${bal>0?'+':''}${fmtMoney(bal)}</span></span>
       </div>
     `;
   }).join('');
