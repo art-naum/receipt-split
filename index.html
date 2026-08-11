@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Розкладка чеку</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
   :root{
     --paper:#000000;
@@ -379,6 +379,25 @@
   }
   .result-total .sum{font-size:1.05rem;color:var(--ink);font-weight:700;}
   .result-detail{font-size:0.76rem;color:var(--muted);margin-top:3px;}
+  .balance-row{
+    display:flex;justify-content:space-between;align-items:center;
+    background:var(--field);
+    border-radius:16px;padding:12px 16px;
+  }
+  .balance-row .name{font-weight:600;font-size:1.0rem;}
+  .balance-row .amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:700;font-size:1.0rem;}
+  .balance-row .amt.pos{color:#32d74b;}
+  .balance-row .amt.neg{color:var(--danger);}
+  .balance-row .tag{font-size:0.72rem;color:var(--muted);font-weight:500;margin-left:8px;}
+  .transfer-row{
+    display:flex;justify-content:space-between;align-items:center;gap:10px;
+    padding:11px 16px;
+    border:1px solid var(--line);
+    border-radius:16px;
+    font-size:0.9rem;
+  }
+  .transfer-row .arrow{color:var(--muted);}
+  .transfer-row .amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:700;color:var(--accent-dark);}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
   .history-item{
     display:flex;justify-content:space-between;align-items:center;
@@ -414,6 +433,9 @@
     </div>
     <input type="file" id="fileInput" accept=".xml" onchange="handleFile(this.files[0])">
   </div>
+
+  <!-- PAID BY -->
+  <div id="paidBySection"></div>
 
   <!-- RECEIPT + ASSIGNMENT -->
   <div id="receiptSection"></div>
@@ -455,6 +477,50 @@ function fmtQty(n){
   s = s.replace(/0+$/,'').replace(/\.$/,'');
   return s;
 }
+// Splits `total` into items.length parts, proportionally to `weights`.
+// Each part is floored to cents; the leftover (rounding remainder) goes to
+// the last part so the parts always sum exactly to `total`.
+// `denominator` defaults to the sum of weights, but can be overridden
+// (e.g. fixed percent scale of 100, or a reference total different from
+// the sum of the individual weights).
+function splitProportionally(total, weights, denominator){
+  const n = weights.length;
+  const result = new Array(n).fill(0);
+  const denom = denominator!=null ? denominator : weights.reduce((a,v)=>a+v,0);
+  if(!(denom>0)) return result;
+  let assigned = 0;
+  for(let idx=0; idx<n; idx++){
+    if(idx < n-1){
+      const amt = Math.floor((total*weights[idx]/denom)*100)/100;
+      result[idx] = amt;
+      assigned += amt;
+    }else{
+      result[idx] = Math.round((total-assigned)*100)/100;
+    }
+  }
+  return result;
+}
+function textOf(root, tag){
+  if(!root) return '';
+  const el = root.querySelector(tag);
+  return el ? el.textContent.trim() : '';
+}
+function numOf(root, tag){
+  const t = textOf(root, tag);
+  return t ? (parseFloat(t)||0) : 0;
+}
+function extractCheckNoFromFileName(fileName){
+  return (fileName||'')
+    .replace(/\.xml$/i, '')
+    .replace(/(\s\(\d+\)|_\d+)$/, '');
+}
+// Builds the same cabinet.tax.gov.ua check-lookup link regardless of the source
+// XML schema. `mac` is intentionally omitted (see call sites for why).
+function buildVerifyUrl(fn, checkNo, dateParam, timeParam, totalSum){
+  if(!fn || !checkNo || !dateParam) return '';
+  const smParam = totalSum.toFixed(2);
+  return `https://cabinet.tax.gov.ua/cashregs/check?date=${dateParam}&time=${timeParam}&id=${encodeURIComponent(checkNo)}&sm=${encodeURIComponent(smParam)}&fn=${encodeURIComponent(fn)}`;
+}
 function decodeXmlBuffer(buf){
   const sniff = new TextDecoder('latin1').decode(buf.slice(0,200));
   const m = sniff.match(/encoding=["']([^"']+)["']/i);
@@ -491,9 +557,13 @@ function removeBuyer(id){
       it.buyerIds = it.buyerIds.filter(x=>x!==id);
       delete it.manualValues[id];
     });
+    if(Array.isArray(state.receipt.paidBy)){
+      state.receipt.paidBy = state.receipt.paidBy.filter(p=>p.buyerId!==id);
+      reseedPaidByAmounts(state.receipt);
+    }
   }
   renderBuyers();
-  if(state.receipt) renderReceipt();
+  if(state.receipt){ renderReceipt(); renderResults(); }
 }
 function renderBuyers(){
   const el = document.getElementById('buyerList');
@@ -598,9 +668,7 @@ function parseRqSchema(doc, fileName){
   const totalSum = mEl ? parseInt(mEl.getAttribute('SM')||'0',10)/100 : items.reduce((a,i)=>a+i.sum,0);
   const payMethod = mEl ? (mEl.getAttribute('NM') || mEl.getAttribute('PSNM') || '') : '';
   const macEl = doc.querySelector('MAC');
-  const checkNoFromFileName = (fileName||'')
-    .replace(/\.xml$/i, '')
-    .replace(/(\s\(\d+\)|_\d+)$/, '');
+  const checkNoFromFileName = extractCheckNoFromFileName(fileName);
   const checkNo = (macEl && macEl.getAttribute('ID')) || checkNoFromFileName || (eEl ? eEl.getAttribute('NO') : '') || '';
   const tsRaw = (eEl && eEl.getAttribute('TS')) || (doc.querySelector('TS') ? doc.querySelector('TS').textContent : '');
   let dateStr = '';
@@ -691,14 +759,13 @@ function parseRqSchema(doc, fileName){
     const dateParam = tsRaw.slice(0,8);
     // official format is HHmm (no seconds, no colons) — see ДПС check-lookup spec
     const timeParam = `${tsRaw.slice(8,10)}${tsRaw.slice(10,12)}`;
-    const smParam = totalSum.toFixed(2);
-    verifyUrl = `https://cabinet.tax.gov.ua/cashregs/check?date=${dateParam}&time=${timeParam}&id=${encodeURIComponent(checkNo)}&sm=${encodeURIComponent(smParam)}&fn=${encodeURIComponent(fn)}`;
+    verifyUrl = buildVerifyUrl(fn, checkNo, dateParam, timeParam, totalSum);
   }
 
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod,
     fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, taxGroups, verifyUrl,
-    headerLines
+    headerLines, paidBy: []
   };
 }
 
@@ -709,16 +776,6 @@ function parseCheckSchema(doc, fileName){
   const payRows = Array.from(doc.querySelectorAll('CHECKPAY > ROW'));
   const taxRows = Array.from(doc.querySelectorAll('CHECKTAX > ROW'));
   const bodyRows = Array.from(doc.querySelectorAll('CHECKBODY > ROW'));
-
-  function textOf(root, tag){
-    if(!root) return '';
-    const el = root.querySelector(tag);
-    return el ? el.textContent.trim() : '';
-  }
-  function numOf(root, tag){
-    const t = textOf(root, tag);
-    return t ? (parseFloat(t)||0) : 0;
-  }
 
   // CHECKTOTAL may contain a receipt-level discount which is NOT repeated
   // in CHECKBODY rows. In that case COST stays at the original (pre-discount)
@@ -758,19 +815,11 @@ function parseCheckSchema(doc, fileName){
     const referenceGross = grossTotal > 0 ? grossTotal : round2(totalSum + receiptDiscount);
     const discountBase = baseTotal > 0 ? baseTotal : referenceGross;
 
-    if(discountBase > 0){
-      let allocated = 0;
-      items.forEach((item, idx)=>{
-        if(idx === items.length-1){
-          item.discount = round2((item.discount||0) + (globalDiscount - allocated));
-        }else{
-          const part = Math.floor((globalDiscount * item._grossSum / discountBase) * 100) / 100;
-          item.discount = round2((item.discount||0) + part);
-          allocated += part;
-        }
-        item.sum = round2(item._grossSum - item.discount);
-      });
-    }
+    const discountParts = splitProportionally(globalDiscount, items.map(i=>i._grossSum), discountBase);
+    items.forEach((item, idx)=>{
+      item.discount = round2((item.discount||0) + discountParts[idx]);
+      item.sum = round2(item._grossSum - item.discount);
+    });
   }
 
   // Reconcile cent rounding to the fiscal total.
@@ -796,9 +845,7 @@ function parseCheckSchema(doc, fileName){
     dateStr = `${d}.${mo}.${y} ${h}:${mi}:${s}`;
   }
 
-  const checkNoFromFileName = (fileName||'')
-    .replace(/\.xml$/i, '')
-    .replace(/(\s\(\d+\)|_\d+)$/, '');
+  const checkNoFromFileName = extractCheckNoFromFileName(fileName);
   const checkNo = textOf(head,'ORDERTAXNUM') || checkNoFromFileName || textOf(head,'UID') || textOf(head,'ORDERNUM') || '';
 
   const fn = textOf(head,'CASHREGISTERNUM');
@@ -851,8 +898,7 @@ function parseCheckSchema(doc, fileName){
     const dateParam = `${orderDate.slice(4,8)}${orderDate.slice(2,4)}${orderDate.slice(0,2)}`;
     // official format is HHmm (no seconds, no colons) — see ДПС check-lookup spec
     const timeParam = orderTime.length===6 ? `${orderTime.slice(0,2)}${orderTime.slice(2,4)}` : '0000';
-    const smParam = totalSum.toFixed(2);
-    verifyUrl = `https://cabinet.tax.gov.ua/cashregs/check?date=${dateParam}&time=${timeParam}&id=${encodeURIComponent(checkNo)}&sm=${encodeURIComponent(smParam)}&fn=${encodeURIComponent(fn)}`;
+    verifyUrl = buildVerifyUrl(fn, checkNo, dateParam, timeParam, totalSum);
   }
 
   // Money-transfer-style receipts (e.g. "Переказ коштів...") carry extra recipient/bank details
@@ -902,18 +948,20 @@ function parseCheckSchema(doc, fileName){
     fn, tn, tnLabel, zn, docNumber, shiftSerial:'', payment, payments, taxGroups, verifyUrl,
     discountPercent: receiptDiscountPercent,
     ipn, orgName, pointName, pointAddr, cashier, cashDeskNum, headerLines,
-    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz
+    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz, paidBy: []
   };
 }
 
 /* ---------- RECEIPT + ASSIGNMENT RENDERING ---------- */
 function renderReceipt(){
   const el = document.getElementById('receiptSection');
-  if(!state.receipt){ el.innerHTML=''; return; }
+  const paidByEl = document.getElementById('paidBySection');
+  if(!state.receipt){ el.innerHTML=''; paidByEl.innerHTML=''; return; }
   const r = state.receipt;
 
   if(state.buyers.length===0){
     el.innerHTML = '<div class="warn-banner">Спочатку додай покупців у розділі 1 — тоді зможеш розподілити позиції.</div>';
+    paidByEl.innerHTML = '';
     return;
   }
   const lines = r.items.map(it=>`
@@ -931,6 +979,8 @@ function renderReceipt(){
 
   const assignRows = r.items.map(it=>renderAssignRow(it)).join('');
   const detailsBlock = renderReceiptDetails(r);
+
+  paidByEl.innerHTML = renderPaidByBlock(r);
 
   el.innerHTML = `
     <div class="card">
@@ -1105,6 +1155,133 @@ function renderReceiptDetails(r){
         ${qrHtml}
       </div>
     </details>
+  `;
+}
+
+/* ---------- PAID BY (who actually paid the receipt) ---------- */
+function paidByTotal(paidBy){
+  return round2((paidBy||[]).reduce((a,p)=>a+(parseFloat(p.amount)||0),0));
+}
+function isPaidByValid(receipt){
+  if(!receipt || !Array.isArray(receipt.paidBy) || receipt.paidBy.length===0) return false;
+  return Math.abs(paidByTotal(receipt.paidBy) - receipt.totalSum) < 0.01;
+}
+function reseedPaidByAmounts(r){
+  if(r.paidBy.length===1){
+    r.paidBy[0].amount = r.totalSum;
+  }else if(r.paidBy.length>1){
+    const missing = r.paidBy.filter(p=>p.amount===''||p.amount==null);
+    if(missing.length>0){
+      const already = r.paidBy.filter(p=>!missing.includes(p)).reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
+      const amounts = splitProportionally(round2(r.totalSum-already), new Array(missing.length).fill(1));
+      missing.forEach((p,idx)=>{ p.amount = amounts[idx]; });
+    }
+  }
+}
+function togglePayer(buyerId){
+  const r = state.receipt;
+  if(!r) return;
+  if(!Array.isArray(r.paidBy)) r.paidBy = [];
+  const idx = r.paidBy.findIndex(p=>p.buyerId===buyerId);
+  if(idx>=0) r.paidBy.splice(idx,1);
+  else r.paidBy.push({buyerId, amount:''});
+  reseedPaidByAmounts(r);
+  renderReceipt();
+  renderResults();
+}
+function setLastFocusedPayer(buyerId){
+  const r = state.receipt;
+  if(!r || r.lastFocusedPayer===buyerId) return;
+  r.lastFocusedPayer = buyerId;
+  renderReceipt();
+  const el = document.getElementById(`pv_${buyerId}`);
+  if(el) el.focus();
+}
+function setPaidAmount(buyerId, value){
+  const r = state.receipt;
+  if(!r) return;
+  const p = r.paidBy.find(x=>x.buyerId===buyerId);
+  if(!p) return;
+  p.amount = value;
+
+  const fieldId = `pv_${buyerId}`;
+  const active = document.activeElement;
+  const wasFocused = active && active.id===fieldId;
+  const selStart = wasFocused ? active.selectionStart : null;
+  const selEnd = wasFocused ? active.selectionEnd : null;
+
+  renderReceipt();
+  renderResults();
+
+  if(wasFocused){
+    const el = document.getElementById(fieldId);
+    if(el){
+      el.focus();
+      if(typeof selStart==='number'){ try{ el.setSelectionRange(selStart, selEnd); }catch(e){} }
+    }
+  }
+}
+function addPaidRemainderToFocused(remainderVal){
+  const r = state.receipt;
+  if(!r) return;
+  const bid = (r.lastFocusedPayer && r.paidBy.some(p=>p.buyerId===r.lastFocusedPayer)) ? r.lastFocusedPayer : (r.paidBy[0] && r.paidBy[0].buyerId);
+  if(!bid) return;
+  const p = r.paidBy.find(x=>x.buyerId===bid);
+  const current = parseFloat(p.amount) || 0;
+  let next = Math.round((current+remainderVal)*100)/100;
+  if(next<0) next = 0;
+  setPaidAmount(bid, next);
+}
+function renderPaidByBlock(r){
+  if(!Array.isArray(r.paidBy)) r.paidBy = [];
+  const buyers = state.buyers;
+  const chips = buyers.map(b=>{
+    const active = r.paidBy.some(p=>p.buyerId===b.id);
+    return `<span class="chip ${active?'active':''}" onclick="togglePayer('${b.id}')">${escapeHtml(b.name)}</span>`;
+  }).join('');
+
+  let manualRows = '';
+  if(r.paidBy.length>1){
+    manualRows = r.paidBy.map(p=>{
+      const b = buyers.find(x=>x.id===p.buyerId);
+      const active = document.activeElement;
+      const fieldId = `pv_${p.buyerId}`;
+      const isFocused = active && active.id===fieldId;
+      let val = p.amount ?? '';
+      if(val!=='' && !isFocused){ const num=parseFloat(val); if(!isNaN(num)) val = num.toFixed(2); }
+      return `<div class="manual-row">
+        <span class="label">${escapeHtml(b?b.name:'?')}</span>
+        <input type="number" step="0.01" value="${val}" id="${fieldId}" onfocus="setLastFocusedPayer('${p.buyerId}')" oninput="setPaidAmount('${p.buyerId}',this.value)"> ₴
+      </div>`;
+    }).join('');
+
+    const allocated = r.paidBy.reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
+    const remainder = Math.round((r.totalSum-allocated)*100)/100;
+    const ok = Math.abs(remainder) < 0.01;
+    if(ok){
+      manualRows += `<div class="remainder ok">Розподілено повністю ✓</div>`;
+    }else{
+      const targetBid = (r.lastFocusedPayer && r.paidBy.some(p=>p.buyerId===r.lastFocusedPayer)) ? r.lastFocusedPayer : r.paidBy[0].buyerId;
+      const current = parseFloat((r.paidBy.find(p=>p.buyerId===targetBid)||{}).amount) || 0;
+      const clickable = (current+remainder) >= -0.01;
+      const inner = clickable
+        ? `<span class="remainder-link" onmousedown="event.preventDefault()" onclick="addPaidRemainderToFocused(${remainder})">${fmtMoney(remainder)}</span>`
+        : fmtMoney(remainder);
+      manualRows += `<div class="remainder bad">Залишилось: ${inner}</div>`;
+    }
+  }
+
+  const note = r.paidBy.length===0
+    ? '<div class="sub" style="color:var(--muted);margin-top:8px;">Не вказано — цей чек не увійде у взаєморозрахунок нижче.</div>'
+    : '';
+
+  return `
+    <div class="card">
+      <h2>Хто сплатив чек</h2>
+      <div class="row">${chips}</div>
+      ${manualRows}
+      ${note}
+    </div>
   `;
 }
 
@@ -1297,13 +1474,8 @@ function allocateItem(it){
     return result;
   }
   if(it.mode==='equal'){
-    const n = it.buyerIds.length;
-    const base = Math.floor((it.sum/n)*100)/100;
-    let assigned = 0;
-    it.buyerIds.forEach((bid,idx)=>{
-      if(idx < n-1){ result[bid]=base; assigned+=base; }
-      else { result[bid]=Math.round((it.sum-assigned)*100)/100; }
-    });
+    const amounts = splitProportionally(it.sum, new Array(it.buyerIds.length).fill(1));
+    it.buyerIds.forEach((bid,idx)=>{ result[bid]=amounts[idx]; });
     return result;
   }
   // manual
@@ -1311,32 +1483,15 @@ function allocateItem(it){
     it.buyerIds.forEach(bid=>{ result[bid] = parseFloat(it.manualValues[bid])||0; });
   }else if(it.manualType==='percent'){
     const pcts = it.buyerIds.map(bid=>parseFloat(it.manualValues[bid])||0);
-    let assigned = 0;
-    it.buyerIds.forEach((bid,idx)=>{
-      if(idx < it.buyerIds.length-1){
-        const amt = Math.floor((it.sum*pcts[idx]/100)*100)/100;
-        result[bid]=amt; assigned+=amt;
-      }else{
-        result[bid]=Math.round((it.sum-assigned)*100)/100;
-      }
-    });
+    // denominator is fixed at 100 (not sum of entered percents) so that a
+    // percent total that doesn't add up to 100 still surfaces as a mismatch
+    // elsewhere, instead of being silently normalized away here.
+    const amounts = splitProportionally(it.sum, pcts, 100);
+    it.buyerIds.forEach((bid,idx)=>{ result[bid]=amounts[idx]; });
   }else if(it.manualType==='fraction'){
     const shares = it.buyerIds.map(bid=>parseFloat(it.manualValues[bid])||0);
-    const totalShares = shares.reduce((a,v)=>a+v,0);
-    if(totalShares<=0){
-      it.buyerIds.forEach(bid=>{ result[bid]=0; });
-    }else{
-      let assigned = 0;
-      it.buyerIds.forEach((bid,idx)=>{
-        const share = parseFloat(it.manualValues[bid])||0;
-        if(idx < it.buyerIds.length-1){
-          const amt = Math.floor((it.sum*share/totalShares)*100)/100;
-          result[bid]=amt; assigned+=amt;
-        }else{
-          result[bid]=Math.round((it.sum-assigned)*100)/100;
-        }
-      });
-    }
+    const amounts = splitProportionally(it.sum, shares);
+    it.buyerIds.forEach((bid,idx)=>{ result[bid]=amounts[idx]; });
   }
   return result;
 }
@@ -1391,9 +1546,115 @@ function buyerItemBreakdown(bid){
     });
 }
 
+/* ---------- SETTLEMENT (who paid vs who consumed, across all receipts) ---------- */
+function computeGlobalBalances(){
+  const consumed = {}, paid = {};
+  state.buyers.forEach(b=>{ consumed[b.id]=0; paid[b.id]=0; });
+  let includedCount = 0, excludedCount = 0;
+
+  if(state.receipt){
+    if(isPaidByValid(state.receipt)){
+      state.receipt.items.forEach(it=>{
+        const alloc = allocateItem(it);
+        Object.entries(alloc).forEach(([bid,amt])=>{ if(consumed[bid]!==undefined) consumed[bid]+=amt; });
+      });
+      state.receipt.paidBy.forEach(p=>{ if(paid[p.buyerId]!==undefined) paid[p.buyerId]+=(parseFloat(p.amount)||0); });
+      includedCount++;
+    }else{
+      excludedCount++;
+    }
+  }
+  state.history.forEach(h=>{
+    const valid = Array.isArray(h.paidBy) && h.paidBy.length>0 && Math.abs(paidByTotal(h.paidBy)-h.totalSum) < 0.01;
+    if(valid){
+      h.totals.forEach(t=>{ if(consumed[t.buyerId]!==undefined) consumed[t.buyerId]+=t.sum; });
+      h.paidBy.forEach(p=>{ if(paid[p.buyerId]!==undefined) paid[p.buyerId]+=(parseFloat(p.amount)||0); });
+      includedCount++;
+    }else{
+      excludedCount++;
+    }
+  });
+
+  const balances = {};
+  state.buyers.forEach(b=>{ balances[b.id] = round2((paid[b.id]||0) - (consumed[b.id]||0)); });
+  return { balances, includedCount, excludedCount };
+}
+
+// Greedy debt simplification: repeatedly matches the biggest debtor with the
+// biggest creditor. Minimizes transaction count; the resulting pairing is a
+// mathematical convenience, not a record of who actually bought what.
+function simplifyDebts(balances){
+  const creditors = [], debtors = [];
+  Object.entries(balances).forEach(([bid,bal])=>{
+    if(bal > 0.005) creditors.push({bid, amt:bal});
+    else if(bal < -0.005) debtors.push({bid, amt:-bal});
+  });
+  creditors.sort((a,b)=>b.amt-a.amt);
+  debtors.sort((a,b)=>b.amt-a.amt);
+
+  const transfers = [];
+  let ci=0, di=0;
+  while(ci<creditors.length && di<debtors.length){
+    const c = creditors[ci], d = debtors[di];
+    const amt = round2(Math.min(c.amt, d.amt));
+    if(amt > 0.005) transfers.push({from:d.bid, to:c.bid, amount:amt});
+    c.amt = round2(c.amt - amt);
+    d.amt = round2(d.amt - amt);
+    if(c.amt <= 0.005) ci++;
+    if(d.amt <= 0.005) di++;
+  }
+  return transfers;
+}
+
+function renderSettlementCard(){
+  const { balances, includedCount, excludedCount } = computeGlobalBalances();
+  if(includedCount===0) return '';
+
+  const buyerName = bid => { const b=state.buyers.find(x=>x.id===bid); return b?b.name:'?'; };
+
+  const balanceRows = state.buyers.map(b=>{
+    const bal = balances[b.id]||0;
+    const cls = bal>0.005 ? 'pos' : (bal<-0.005 ? 'neg' : '');
+    const tag = bal>0.005 ? 'йому винні' : (bal<-0.005 ? 'він винен' : 'у розрахунку');
+    return `
+      <div class="balance-row">
+        <span class="name">${escapeHtml(b.name)}</span>
+        <span><span class="amt ${cls}">${bal>0?'+':''}${fmtMoney(bal)}</span><span class="tag">${tag}</span></span>
+      </div>
+    `;
+  }).join('');
+
+  const transfers = simplifyDebts(balances);
+  const transferRows = transfers.length>0
+    ? transfers.map(t=>`
+        <div class="transfer-row">
+          <span>${escapeHtml(buyerName(t.from))} <span class="arrow">→</span> ${escapeHtml(buyerName(t.to))}</span>
+          <span class="amt">${fmtMoney(t.amount)}</span>
+        </div>
+      `).join('')
+    : '<div class="empty">Всі розрахунки закриті ✓</div>';
+
+  const note = excludedCount>0
+    ? `<div class="result-detail" style="margin-top:10px;">Не враховано у розрахунку: ${excludedCount} чек(ів) без вказаного платника.</div>`
+    : '';
+
+  return `
+    <div class="card">
+      <h2>Взаєморозрахунок <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">за всі чеки</span></h2>
+      <div class="result-grid">${balanceRows}</div>
+      <div style="font-weight:700;font-size:0.85rem;margin:16px 0 8px;color:var(--ink-soft);">Хто кому переказує</div>
+      <div class="result-grid">${transferRows}</div>
+      ${note}
+    </div>
+  `;
+}
+
 function renderResults(){
   const el = document.getElementById('resultsSection');
-  if(!state.receipt){ el.innerHTML=''; return; }
+  if(!state.receipt){
+    el.innerHTML = renderSettlementCard();
+    return;
+  }
   const totals = {};
   state.buyers.forEach(b=> totals[b.id]=0);
   let unassigned = 0;
@@ -1461,6 +1722,7 @@ function renderResults(){
         <button class="btn-primary" onclick="saveToHistory()">Зберегти чек в історію</button>
       </div>
     </div>
+    ${renderSettlementCard()}
   `;
 }
 
@@ -1484,6 +1746,7 @@ function saveToHistory(){
     items: JSON.parse(JSON.stringify(state.receipt.items)),
     buyerNames,
     totals: state.buyers.map(b=>({buyerId:b.id, name:b.name, sum: round2(totals[b.id]||0)})),
+    paidBy: JSON.parse(JSON.stringify(state.receipt.paidBy || [])),
     receiptSnapshot: JSON.parse(JSON.stringify(state.receipt))
   });
   state.receipt = null;
@@ -1496,6 +1759,7 @@ function removeHistoryItem(id){
   state.history = state.history.filter(h=>h.id!==id);
   expandedHistory.delete(id);
   renderHistory();
+  renderResults();
 }
 function reopenHistoryItem(id){
   const h = state.history.find(x=>x.id===id);
@@ -1513,6 +1777,7 @@ function reopenHistoryItem(id){
     // but always take the freshest edited item assignments from h.items
     state.receipt = JSON.parse(JSON.stringify(h.receiptSnapshot));
     state.receipt.items = JSON.parse(JSON.stringify(h.items));
+    if(!Array.isArray(state.receipt.paidBy)) state.receipt.paidBy = JSON.parse(JSON.stringify(h.paidBy || []));
   }else{
     // older saved file without the full snapshot — reconstruct what we can
     state.receipt = {
@@ -1521,7 +1786,8 @@ function reopenHistoryItem(id){
       totalSum: h.totalSum,
       checkNo: h.checkNo,
       dateStr: h.dateStr,
-      payMethod: h.payMethod || ''
+      payMethod: h.payMethod || '',
+      paidBy: JSON.parse(JSON.stringify(h.paidBy || []))
     };
   }
   state.history = state.history.filter(x=>x.id!==id);
@@ -1632,6 +1898,9 @@ function importState(file){
   reader.onload = e=>{
     try{
       const data = JSON.parse(e.target.result);
+      if(!data || typeof data!=='object' || !Array.isArray(data.buyers) || !Array.isArray(data.history)){
+        throw new Error('файл має неочікувану структуру (очікувались поля buyers і history)');
+      }
       state = data;
       renderBuyers();
       renderReceipt();
@@ -1661,6 +1930,7 @@ zone.addEventListener('drop', e=>{
 
 renderBuyers();
 renderHistory();
+renderResults();
 </script>
 </body>
 </html>
