@@ -226,7 +226,7 @@
   .rline .r-name{color:var(--ink);font-weight:500;flex:1;min-width:0;}
   .rline .r-qty{color:var(--muted);font-size:0.75rem;white-space:nowrap;text-align:right;}
   .rline .r-sum{font-weight:700;color:var(--ink);white-space:nowrap;}
-  .r-tax-group{font:inherit;color:inherit;font-weight:inherit;}
+  .r-tax-group{font:inherit;color:var(--muted);font-weight:500;margin-right:-15px;}
   .rline .r-disc{color:var(--accent-dark);font-size:0.7rem;}
   .receipt-total{
     display:flex;justify-content:space-between;
@@ -532,10 +532,15 @@ async function handleFile(file){
 function parseReceiptXml(xmlText, fileName){
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
   if(doc.querySelector('parsererror')) throw new Error('це не коректний XML');
-  if(doc.querySelector('CHECKHEAD')){
-    return parseCheckSchema(doc, fileName);
-  }
-  return parseRqSchema(doc, fileName);
+
+  const parsed = doc.documentElement && doc.documentElement.tagName.toUpperCase()==='CHECK'
+    ? parseCheckSchema(doc, fileName)
+    : parseRqSchema(doc, fileName);
+
+  // Зберігаємо формат XML, визначений за кореневим елементом документа.
+  const rootTag = doc.documentElement ? doc.documentElement.tagName.toUpperCase() : '';
+  parsed.xmlFormat = rootTag === 'RQ' ? '<RQ>' : (rootTag === 'CHECK' ? '<CHECK>' : '');
+  return parsed;
 }
 
 /* ---- Schema 1: <RQ><DAT><C>...</C></DAT></RQ> (compact vendor format) ---- */
@@ -916,9 +921,9 @@ function renderReceipt(){
   `).join('');
 
   const totalDiscount = round2(r.items.reduce((a,it)=>a+(it.discount||0),0));
-  const discountLabel = (r.discountPercent!=null && Number(r.discountPercent)>0)
-    ? `В т.ч. знижка (${Number(r.discountPercent).toFixed(2).replace(/\.00$/, '')}%)`
-    : 'В т.ч. знижка';
+  const discountLabel = '<span style="color:var(--muted);">В т.ч.</span> знижка' + ((r.discountPercent!=null && Number(r.discountPercent)>0)
+    ? ` (${Number(r.discountPercent).toFixed(2).replace(/\.00$/, '')}%)`
+    : '');
 
   const assignRows = r.items.map(it=>renderAssignRow(it)).join('');
   const detailsBlock = renderReceiptDetails(r);
@@ -934,7 +939,7 @@ function renderReceipt(){
           </div>
           ${lines}
           <div class="receipt-total"><span>РАЗОМ</span><span>${fmtMoney(r.totalSum)}</span></div>
-          ${totalDiscount>0 ? `<div class="rline" style="margin-top:-15px;"><span class="r-name r-disc" style="font-weight:500;font-size:0.82rem;"><span>${escapeHtml(discountLabel)}</span></span><span class="r-sum r-disc" style="font-weight:700;font-size:0.82rem;">${fmtMoney(totalDiscount)}</span></div>` : ''}
+          ${totalDiscount>0 ? `<div class="rline" style="margin-top:-15px;"><span class="r-name r-disc" style="font-weight:500;font-size:0.82rem;">${discountLabel}</span><span class="r-sum r-disc" style="font-weight:700;font-size:0.82rem;">${fmtMoney(totalDiscount)}</span></div>` : ''}
         </div>
         <div class="receipt-tear"></div>
       </div>
@@ -993,6 +998,7 @@ function renderReceiptDetails(r){
   if(r.docNumber) receiptRows.push(['№ документа', r.docNumber]);
   if(r.shiftSerial) receiptRows.push(['Серійний номер', r.shiftSerial]);
   if(r.items && r.items.length>0) receiptRows.push(['Артикулів в чеку', String(r.items.length)]);
+  if(r.xmlFormat) receiptRows.push(['Формат XML', r.xmlFormat]);
 
   const paymentRows = [];
   if(r.payments && r.payments.length>1){
@@ -1021,13 +1027,14 @@ function renderReceiptDetails(r){
     if(p.provided!=null) paymentRows.push(['Отримано готівкою', fmtMoney(p.provided)]);
     if(p.change!=null) paymentRows.push(['Решта', fmtMoney(p.change)]);
   }
-  if(r.payerNm) paymentRows.push(['Платник', r.payerNm]);
-  if(r.phone) paymentRows.push(['Телефон платника', r.phone]);
-  if(r.recipientNm) paymentRows.push(['Отримувач переказу', r.recipientNm]);
-  if(r.recipientIpn) paymentRows.push(['ЄДРПОУ отримувача', r.recipientIpn]);
-  if(r.bankNm) paymentRows.push(['Банк отримувача', r.bankNm]);
-  if(r.bankRs) paymentRows.push(['IBAN отримувача', r.bankRs]);
-  if(r.epz) paymentRows.push(['ЕПЗ', r.epz]);
+  const transferRows = [];
+  if(r.payerNm) transferRows.push(['Платник', r.payerNm]);
+  if(r.phone) transferRows.push(['Телефон платника', r.phone]);
+  if(r.recipientNm) transferRows.push(['Отримувач переказу', r.recipientNm]);
+  if(r.recipientIpn) transferRows.push(['ЄДРПОУ отримувача', r.recipientIpn]);
+  if(r.bankNm) transferRows.push(['Банк отримувача', r.bankNm]);
+  if(r.bankRs) transferRows.push(['IBAN отримувача', r.bankRs]);
+  if(r.epz) transferRows.push(['ЕПЗ', r.epz]);
 
   const rowGroupHtml = (label, list) => list.length>0 ? `
     <div class="detail-subhead">${escapeHtml(label)}</div>
@@ -1042,6 +1049,13 @@ function renderReceiptDetails(r){
   const paymentHtml = paymentRows.length>0 ? `
     <div class="detail-subhead">Інформація про оплату</div>
     ${paymentRows.map(([label,val])=>`
+      <div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-val">${escapeHtml(val)}</span></div>
+    `).join('')}
+  ` : '';
+
+  const transferHtml = transferRows.length>0 ? `
+    <div class="detail-subhead">Інформація про переказ</div>
+    ${transferRows.map(([label,val])=>`
       <div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-val">${escapeHtml(val)}</span></div>
     `).join('')}
   ` : '';
@@ -1063,7 +1077,7 @@ function renderReceiptDetails(r){
     <div style="font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-size:0.78rem;color:var(--muted);line-height:1.7;white-space:pre-wrap; padding: 6px 0 8px 0; border-bottom: 1px solid var(--line)">${linesToShow.map(escapeHtml).join('\n')}</div>
   ` : '';
 
-  if(sellerRows.length===0 && receiptRows.length===0 && !paymentHtml && !taxHtml && !linesHtml && !r.verifyUrl) return '';
+  if(sellerRows.length===0 && receiptRows.length===0 && !paymentHtml && !transferHtml && !taxHtml && !linesHtml && !r.verifyUrl) return '';
 
   const qrHtml = r.verifyUrl ? `
     <div class="receipt-qr">
@@ -1081,6 +1095,7 @@ function renderReceiptDetails(r){
         ${sellerHtml}
         ${receiptRowsHtml}
         ${paymentHtml}
+        ${transferHtml}
         ${taxHtml}
         ${linesHtml}
         ${qrHtml}
