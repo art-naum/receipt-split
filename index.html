@@ -104,14 +104,17 @@
     padding:10px 13px;
     border:1px solid var(--line);
     border-radius:12px;
-    background:var(--field);
+    background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.01)), var(--field);
+    backdrop-filter:blur(16px) saturate(160%);
+    -webkit-backdrop-filter:blur(16px) saturate(160%);
+    box-shadow:0 1px 0 rgba(255,255,255,0.09) inset;
     color:var(--ink);
     outline:none;
     transition:border-color .15s ease, background .15s ease;
   }
   input[type=text]:focus, input[type=number]:focus, select:focus{
     border-color:var(--accent);
-    background:var(--field-focus);
+    background:linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.01)), var(--field-focus);
   }
   input[type=number]{width:92px;}
   button{
@@ -126,18 +129,37 @@
     transition:transform .1s ease, background .15s ease, opacity .15s ease;
   }
   button:active{transform:scale(0.96);}
-  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 14px -4px rgba(10,132,255,0.6);}
-  .btn-primary:hover{background:var(--accent-dark);}
-  .btn-ghost{background:var(--accent-soft);color:var(--accent-dark);}
-  .btn-ghost:hover{background:rgba(10,132,255,0.28);}
-  .btn-danger{background:var(--danger-soft);color:var(--danger);}
-  .btn-danger:hover{background:rgba(255,69,58,0.28);}
+  .btn-primary{
+    background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0)), var(--accent);
+    color:#fff;
+    box-shadow:0 1px 0 rgba(255,255,255,0.35) inset, 0 4px 14px -4px rgba(10,132,255,0.6);
+  }
+  .btn-primary:hover{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0)), var(--accent-dark);}
+  .btn-ghost{
+    background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0)), var(--accent-soft);
+    color:var(--accent-dark);
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    box-shadow:0 1px 0 rgba(255,255,255,0.14) inset;
+  }
+  .btn-ghost:hover{background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0)), rgba(10,132,255,0.28);}
+  .btn-danger{
+    background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0)), var(--danger-soft);
+    color:var(--danger);
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    box-shadow:0 1px 0 rgba(255,255,255,0.14) inset;
+  }
+  .btn-danger:hover{background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0)), rgba(255,69,58,0.28);}
   .chip{
     display:inline-flex;align-items:center;gap:6px;
     padding:7px 14px;
     border-radius:980px;
     border:1px solid var(--line);
-    background:var(--field);
+    background:linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.02)), var(--field);
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    box-shadow:0 1px 0 rgba(255,255,255,0.14) inset, 0 4px 10px -7px rgba(0,0,0,0.6);
     font-size:0.85rem;
     font-weight:500;
     cursor:pointer;
@@ -147,13 +169,26 @@
   }
   .chip:hover{border-color:var(--accent);}
   .chip.active{
-    background:var(--accent);
+    background:linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0)), var(--accent);
     border-color:var(--accent);
     color:#fff;
-    box-shadow:0 3px 10px -3px rgba(10,132,255,0.7);
+    box-shadow:0 1px 0 rgba(255,255,255,0.4) inset, 0 3px 10px -3px rgba(10,132,255,0.7);
   }
   .chip .del{opacity:.6;font-weight:700;}
   .chip .del:hover{opacity:1;}
+  .chip .chip-name{cursor:text;}
+  .chip .chip-name:hover{text-decoration:underline dotted;text-underline-offset:2px;}
+  .chip-editing{cursor:default;padding-top:6px;padding-bottom:6px;}
+  .chip-edit-input{
+    font:inherit;
+    font-size:inherit;
+    color:inherit;
+    background:transparent;
+    border:none;
+    outline:none;
+    min-width:40px;
+    padding:0;
+  }
   .buyer-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
   .empty{
     color:var(--muted);
@@ -162,6 +197,7 @@
     text-align:center;
     border:1px dashed var(--line);
     border-radius:16px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0));
   }
   input[type=file]{display:none;}
   .upload-zone{
@@ -172,9 +208,12 @@
     cursor:pointer;
     color:var(--muted);
     font-size:0.9rem;
+    background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+    backdrop-filter:blur(16px) saturate(160%);
+    -webkit-backdrop-filter:blur(16px) saturate(160%);
     transition:border-color .15s ease, background .15s ease;
   }
-  .upload-zone:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .upload-zone:hover{border-color:var(--accent);background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0)), var(--accent-soft);}
   .upload-zone b{color:var(--ink);}
 
   /* --- receipt strip --- */
@@ -223,7 +262,7 @@
     border-bottom:1px dashed var(--line);
   }
   .rline:last-child{border-bottom:none;}
-  .rline .r-name{color:var(--ink);font-weight:500;flex:1;min-width:0;}
+  .rline .r-name{color:var(--ink);font-weight:500;flex:1;min-width:0;overflow-wrap:anywhere;word-break:break-word;}
   .rline .r-qty{color:var(--muted);font-size:0.75rem;white-space:nowrap;text-align:right;}
   .rline .r-sum{font-weight:700;color:var(--ink);white-space:nowrap;}
   .r-tax-group{font:inherit;color:var(--muted);font-weight:500;margin-right:-15px;}
@@ -249,6 +288,12 @@
     font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-size:0.8rem;
   }
   .detail-row:last-child{border-bottom:none;}
+  .detail-row.detail-subrow{
+    padding-left:14px;
+    border-bottom-style:dashed;
+  }
+  .detail-row.detail-subrow .detail-label{font-size:0.76rem;}
+  .detail-row.detail-subrow .detail-label::before{content:'– ';}
   .detail-label{color:var(--muted);}
   .detail-val{color:var(--ink);font-weight:500;text-align:right;word-break:break-all;}
   .detail-subhead{
@@ -297,6 +342,8 @@
     flex:1 1 220px;
     min-width:180px;
     font-size:0.88rem;
+    overflow-wrap:anywhere;
+    word-break:break-word;
   }
   .assign-item-name .nm{font-weight:600;}
   .assign-item-name .sub{color:var(--muted);font-size:0.78rem;display:block;margin-top:2px;}
@@ -304,7 +351,11 @@
   .assign-controls{flex:2 1 340px;min-width:280px;}
   .mode-toggle{
     display:flex;gap:2px;margin-top:8px;
-    background:var(--field);
+    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)), var(--field);
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(255,255,255,0.08) inset;
     border-radius:980px;
     padding:3px;
     width:fit-content;
@@ -312,22 +363,28 @@
   .mode-toggle button{
     background:transparent;color:var(--ink-soft);font-size:0.74rem;padding:6px 12px;font-weight:600;
   }
-  .mode-toggle button.active{background:#fff;color:#000;box-shadow:0 2px 8px rgba(0,0,0,0.3);}
+  .mode-toggle button.active{background:linear-gradient(180deg, #fff, #ececec);color:#000;box-shadow:0 2px 8px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.7) inset;}
   .manual-row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:0.82rem;}
   .manual-row .label{min-width:110px;color:var(--ink-soft);}
   .remainder{
     margin-top:8px;font-size:0.78rem;font-weight:600;
     padding:5px 11px;border-radius:980px;display:inline-block;
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    box-shadow:0 1px 0 rgba(255,255,255,0.12) inset;
   }
-  .remainder.ok{background:var(--accent-soft);color:var(--accent-dark);}
-  .remainder.bad{background:var(--warn-soft);color:var(--warn);}
+  .remainder.ok{background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0)), var(--accent-soft);color:var(--accent-dark);}
+  .remainder.bad{background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0)), var(--warn-soft);color:var(--warn);}
   .remainder-link{
     cursor:pointer;
     text-decoration:underline dotted;
     text-underline-offset:2px;
   }
   .warn-banner{
-    background:var(--warn-soft);color:var(--warn);
+    background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0)), var(--warn-soft);color:var(--warn);
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    box-shadow:0 1px 0 rgba(255,255,255,0.12) inset;
     border-radius:14px;padding:11px 15px;font-size:0.85rem;font-weight:500;
     margin-bottom:14px;
   }
@@ -336,14 +393,19 @@
   .result-grid{display:flex;flex-direction:column;gap:10px;}
   .result-buyer{
     display:flex;justify-content:space-between;align-items:center;
-    background:var(--accent-soft);
+    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)), var(--field);
+    backdrop-filter:blur(24px) saturate(180%);
+    -webkit-backdrop-filter:blur(24px) saturate(180%);
+    border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(255,255,255,0.10) inset;
     border-radius:16px;padding:12px 16px;
   }
   .result-buyer .name{font-weight:600;font-size:1.0rem;}
   .result-buyer .name.chip{
     font-size:0.85rem;
     font-weight:500;
-    background:var(--field);
+    background:rgba(255,255,255,0.10);
+    border:1px solid var(--line);
   }
   .result-buyer .sum{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:700;color:var(--accent-dark);font-size:1.05rem;}
   .result-buyer-wrap{margin-bottom:0;}
@@ -351,6 +413,8 @@
     margin:6px 2px 0;
     padding:4px 14px 8px;
     border-left:2px solid var(--line);
+    background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0));
+    border-radius:0 12px 12px 0;
   }
   .buyer-detail-row{
     display:flex;justify-content:space-between;gap:10px;
@@ -359,12 +423,15 @@
     font-size:0.82rem;
   }
   .buyer-detail-row:last-child{border-bottom:none;}
-  .bd-name{color:var(--ink);flex:1 1 auto;min-width:0;}
+  .bd-name{color:var(--ink);flex:1 1 auto;min-width:0;overflow-wrap:anywhere;word-break:break-word;}
   .bd-share{color:var(--muted);font-size:0.76rem;white-space:nowrap;flex:0 0 75px;text-align:right;}
   .bd-amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:600;color:var(--ink);white-space:nowrap;flex:0 0 70px;text-align:right;}
   .result-total{
-    background:var(--accent-soft);
+    background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0)), var(--accent-soft);
+    backdrop-filter:blur(24px) saturate(180%);
+    -webkit-backdrop-filter:blur(24px) saturate(180%);
     border:1px solid var(--accent);
+    box-shadow:0 1px 0 rgba(255,255,255,0.2) inset;
     border-radius:16px;
     margin-top:10px;
     padding:10px 16px;
@@ -381,7 +448,11 @@
   .result-detail{font-size:0.76rem;color:var(--muted);margin-top:3px;}
   .balance-row{
     display:flex;justify-content:space-between;align-items:center;
-    background:var(--field);
+    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)), var(--field);
+    backdrop-filter:blur(24px) saturate(180%);
+    -webkit-backdrop-filter:blur(24px) saturate(180%);
+    border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(255,255,255,0.10) inset;
     border-radius:16px;padding:12px 16px;
   }
   .balance-row .name{font-weight:600;font-size:1.0rem;}
@@ -392,7 +463,11 @@
   .transfer-row{
     display:flex;justify-content:space-between;align-items:center;gap:10px;
     padding:11px 16px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+    backdrop-filter:blur(24px) saturate(180%);
+    -webkit-backdrop-filter:blur(24px) saturate(180%);
     border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(255,255,255,0.08) inset;
     border-radius:16px;
     font-size:0.9rem;
   }
@@ -402,7 +477,10 @@
   .history-item{
     display:flex;justify-content:space-between;align-items:center;
     padding:11px 15px;border-radius:16px;border:1px solid var(--line);margin-bottom:8px;font-size:0.85rem;
-    background:var(--row-tint);
+    background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0)), var(--row-tint);
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    box-shadow:0 1px 0 rgba(255,255,255,0.08) inset;
   }
   .history-item .hf{color:var(--muted);font-size:0.78rem;}
   .footnote{color:var(--muted);font-size:0.78rem;margin-top:10px;}
@@ -434,18 +512,21 @@
     <input type="file" id="fileInput" accept=".xml" onchange="handleFile(this.files[0])">
   </div>
 
+  <!-- RECEIPT (paper) -->
+  <div id="receiptSection"></div>
+
   <!-- PAID BY -->
   <div id="paidBySection"></div>
 
-  <!-- RECEIPT + ASSIGNMENT -->
-  <div id="receiptSection"></div>
+  <!-- ASSIGNMENT -->
+  <div id="assignSection"></div>
 
   <!-- RESULTS -->
   <div id="resultsSection"></div>
 
   <!-- HISTORY -->
   <div class="card">
-    <h2><span class="num">5</span> Історія чеків</h2>
+    <h2><span class="num">6</span> Історія чеків</h2>
     <div id="historyList"><div class="empty">Ще немає збережених чеків</div></div>
     <div class="footnote">Дані зберігаються лише в пам'яті вкладки. Щоб не втратити їх — тисни «Зберегти файл» (JSON) і завантаж його наступного разу — всі дані, включно з розподілом по позиціях, підтягнуться назад, і можна буде продовжити редагування.</div>
     <div class="toolbar">
@@ -553,6 +634,23 @@ function addBuyer(){
   if(state.receipt) renderReceipt();
   input.focus();
 }
+let editingBuyerId = null;
+function startEditBuyer(id){
+  editingBuyerId = id;
+  renderBuyers();
+  const el = document.getElementById(`buyerEdit_${id}`);
+  if(el){ el.focus(); el.select(); }
+}
+function saveBuyerName(id, value){
+  editingBuyerId = null;
+  const b = state.buyers.find(x=>x.id===id);
+  if(b){
+    const trimmed = value.trim();
+    if(trimmed) b.name = trimmed;
+  }
+  renderBuyers();
+  if(state.receipt){ renderReceipt(); renderResults(); }
+}
 function removeBuyer(id){
   state.buyers = state.buyers.filter(b=>b.id!==id);
   if(state.receipt){
@@ -573,9 +671,16 @@ function renderBuyers(){
   if(state.buyers.length===0){
     el.innerHTML = '<div class="empty">Додай хоча б одного покупця вище</div>';
   }else{
-    el.innerHTML = state.buyers.map(b=>`
-      <span class="chip">${escapeHtml(b.name)} <span class="del" onclick="removeBuyer('${b.id}')">✕</span></span>
-    `).join('');
+    el.innerHTML = state.buyers.map(b=>{
+      if(b.id===editingBuyerId){
+        return `<span class="chip chip-editing">
+          <input type="text" class="chip-edit-input" id="buyerEdit_${b.id}" value="${escapeHtml(b.name)}" style="width:${Math.max(String(b.name).length, 3)}ch"
+            onkeydown="if(event.key==='Enter'){ this.blur(); }else if(event.key==='Escape'){ this.value=this.defaultValue; this.blur(); }"
+            onblur="saveBuyerName('${b.id}', this.value)" oninput="capitalizeFirst(this); this.style.width=Math.max(this.value.length,3)+'ch'">
+        </span>`;
+      }
+      return `<span class="chip"><span class="chip-name" onclick="startEditBuyer('${b.id}')">${escapeHtml(b.name)}</span> <span class="del" onclick="event.stopPropagation();removeBuyer('${b.id}')">✕</span></span>`;
+    }).join('');
   }
   updateSaveButtonVisibility();
 }
@@ -747,9 +852,9 @@ function parseRqSchema(doc, fileName){
   const taxGroups = [];
   rawTaxGroups.forEach(tx=>{
     const letter = ukGroupLetter(tx.rawGroup);
-    taxGroups.push({ label: `ПДВ ${letter}`, rate: tx.rate, sum: tx.taxableSum });
+    taxGroups.push({ label: `ПДВ ${letter}`, letter, rate: tx.rate, sum: tx.taxableSum });
     if(tx.discountSum>0){
-      taxGroups.push({ label: `Акциз ${letter}`, rate: tx.discountRate, sum: tx.discountSum });
+      taxGroups.push({ label: `Акциз ${letter}`, letter, rate: tx.discountRate, sum: tx.discountSum });
     }
   });
 
@@ -891,7 +996,7 @@ function parseCheckSchema(doc, fileName){
     const letter = textOf(row,'LETTER');
     const prc = textOf(row,'PRC');
     const sum = numOf(row,'SUM');
-    return { label: `${name}${letter?(' '+letter):''}`, rate: prc?parseFloat(prc).toFixed(2):'', sum };
+    return { label: `${name}${letter?(' '+letter):''}`, letter, rate: prc?parseFloat(prc).toFixed(2):'', sum };
   });
 
   // verification link (same cabinet.tax.gov.ua endpoint regardless of XML export schema); mac omitted on purpose (not present in export)
@@ -959,12 +1064,14 @@ function parseCheckSchema(doc, fileName){
 function renderReceipt(){
   const el = document.getElementById('receiptSection');
   const paidByEl = document.getElementById('paidBySection');
-  if(!state.receipt){ el.innerHTML=''; paidByEl.innerHTML=''; return; }
+  const assignEl = document.getElementById('assignSection');
+  if(!state.receipt){ el.innerHTML=''; paidByEl.innerHTML=''; assignEl.innerHTML=''; return; }
   const r = state.receipt;
 
   if(state.buyers.length===0){
     el.innerHTML = '<div class="warn-banner">Спочатку додай покупців у розділі 1 — тоді зможеш розподілити позиції.</div>';
     paidByEl.innerHTML = '';
+    assignEl.innerHTML = '';
     return;
   }
   const lines = r.items.map(it=>`
@@ -1002,8 +1109,11 @@ function renderReceipt(){
       </div>
       ${detailsBlock}
     </div>
+  `;
+
+  assignEl.innerHTML = `
     <div class="card">
-      <h2><span class="num">3</span> Хто за що платить</h2>
+      <h2><span class="num">3</span> Чиї це покупки</h2>
       <div class="assign-block">${assignRows}</div>
     </div>
   `;
@@ -1026,10 +1136,16 @@ function renderReceipt(){
   }
 }
 
+const UK_ALPHABET = ['А','Б','В','Г','Ґ','Д','Е','Є','Ж','З','И','І','Ї','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Х','Ц','Ч','Ш','Щ','Ь','Ю','Я'];
 function ukGroupLetter(groupNum){
-  const alphabet = ['А','Б','В','Г','Ґ','Д','Е','Є','Ж','З','И','І','Ї','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Х','Ц','Ч','Ш','Щ','Ь','Ю','Я'];
   const idx = parseInt(groupNum,10) - 1;
-  return (idx>=0 && alphabet[idx]) ? alphabet[idx] : groupNum;
+  return (idx>=0 && UK_ALPHABET[idx]) ? UK_ALPHABET[idx] : groupNum;
+}
+// Sort key for a tax-group letter, following actual Ukrainian alphabet order
+// (not Unicode code-point order, which misplaces Ґ/Є/Ї/Й). Unknown letters sort last.
+function ukAlphabetSortKey(letter){
+  const idx = UK_ALPHABET.indexOf(letter);
+  return idx>=0 ? idx : 999;
 }
 function itemTaxGroupLetter(it){
   const raw = String(it.taxGroup ?? '').trim();
@@ -1057,32 +1173,47 @@ function renderReceiptDetails(r){
   if(r.items && r.items.length>0) receiptRows.push(['Артикулів в чеку', String(r.items.length)]);
   if(r.xmlFormat) receiptRows.push(['Формат XML', r.xmlFormat]);
 
-  const paymentRows = [];
+  const paymentGroups = [];
   if(r.payments && r.payments.length>1){
     r.payments.forEach((p,idx)=>{
       const n = idx+1;
-      if(p.label) paymentRows.push([`Спосіб оплати ${n}`, p.label + (p.sum!=null ? ` — ${fmtMoney(p.sum)}` : '')]);
-      if(p.system) paymentRows.push([`Платіжна система ${n}`, p.system]);
-      if(p.bankName) paymentRows.push([`Банк-еквайр ${n}`, p.bankName]);
-      if(p.cardMasked) paymentRows.push([`Картка ${n}`, p.cardMasked]);
-      if(p.authCode) paymentRows.push([`Код авторизації ${n}`, p.authCode]);
-      if(p.rrn) paymentRows.push([`RRN ${n}`, p.rrn]);
-      if(p.terminal) paymentRows.push([`Термінал ${n}`, p.terminal]);
-      if(p.provided!=null) paymentRows.push([`Отримано готівкою ${n}`, fmtMoney(p.provided)]);
-      if(p.change!=null) paymentRows.push([`Решта ${n}`, fmtMoney(p.change)]);
+      if(!p.label) return;
+      const sum = p.sum!=null ? p.sum : null;
+      const subRows = [];
+      if(p.system) subRows.push(['Платіжна система', p.system]);
+      if(p.bankName) subRows.push(['Банк-еквайр', p.bankName]);
+      if(p.cardMasked) subRows.push(['Картка', p.cardMasked]);
+      if(p.authCode) subRows.push(['Код авторизації', p.authCode]);
+      if(p.rrn) subRows.push(['RRN', p.rrn]);
+      if(p.terminal) subRows.push(['Термінал', p.terminal]);
+      if(p.provided!=null) subRows.push(['Отримано готівкою', fmtMoney(p.provided)]);
+      if(p.change!=null) subRows.push(['Решта', fmtMoney(p.change)]);
+      paymentGroups.push({
+        headerLabel: `Спосіб оплати ${n}`,
+        headerValue: p.label + (sum!=null ? ` · ${fmtMoney(sum)}` : ''),
+        subRows
+      });
     });
   }else if(r.payment){
     const p = r.payment;
-    if(p.label) paymentRows.push(['Спосіб оплати', p.label]);
-    if(p.system) paymentRows.push(['Платіжна система', p.system]);
-    if(p.bankName) paymentRows.push(['Банк-еквайр', p.bankName]);
-    if(p.operation) paymentRows.push(['Вид операції', p.operation]);
-    if(p.cardMasked) paymentRows.push(['Картка', p.cardMasked]);
-    if(p.authCode) paymentRows.push(['Код авторизації', p.authCode]);
-    if(p.rrn) paymentRows.push(['RRN', p.rrn]);
-    if(p.terminal) paymentRows.push(['Термінал', p.terminal]);
-    if(p.provided!=null) paymentRows.push(['Отримано готівкою', fmtMoney(p.provided)]);
-    if(p.change!=null) paymentRows.push(['Решта', fmtMoney(p.change)]);
+    if(p.label){
+      const sum = p.sum!=null ? p.sum : r.totalSum;
+      const subRows = [];
+      if(p.system) subRows.push(['Платіжна система', p.system]);
+      if(p.bankName) subRows.push(['Банк-еквайр', p.bankName]);
+      if(p.operation) subRows.push(['Вид операції', p.operation]);
+      if(p.cardMasked) subRows.push(['Картка', p.cardMasked]);
+      if(p.authCode) subRows.push(['Код авторизації', p.authCode]);
+      if(p.rrn) subRows.push(['RRN', p.rrn]);
+      if(p.terminal) subRows.push(['Термінал', p.terminal]);
+      if(p.provided!=null) subRows.push(['Отримано готівкою', fmtMoney(p.provided)]);
+      if(p.change!=null) subRows.push(['Решта', fmtMoney(p.change)]);
+      paymentGroups.push({
+        headerLabel: 'Спосіб оплати',
+        headerValue: p.label + (sum!=null ? ` · ${fmtMoney(sum)}` : ''),
+        subRows
+      });
+    }
   }
   const transferRows = [];
   if(r.payerNm) transferRows.push(['Платник', r.payerNm]);
@@ -1103,10 +1234,13 @@ function renderReceiptDetails(r){
   const sellerHtml = rowGroupHtml('Інформація про продавця', sellerRows);
   const receiptRowsHtml = rowGroupHtml('Інформація про чек', receiptRows);
 
-  const paymentHtml = paymentRows.length>0 ? `
+  const paymentHtml = paymentGroups.length>0 ? `
     <div class="detail-subhead">Інформація про оплату</div>
-    ${paymentRows.map(([label,val])=>`
-      <div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-val">${escapeHtml(val)}</span></div>
+    ${paymentGroups.map(g=>`
+      <div class="detail-row"><span class="detail-label">${escapeHtml(g.headerLabel)}</span><span class="detail-val">${escapeHtml(g.headerValue)}</span></div>
+      ${g.subRows.map(([l,val])=>`
+        <div class="detail-row detail-subrow"><span class="detail-label">${escapeHtml(l)}</span><span class="detail-val">${escapeHtml(val)}</span></div>
+      `).join('')}
     `).join('')}
   ` : '';
 
@@ -1117,12 +1251,12 @@ function renderReceiptDetails(r){
     `).join('')}
   ` : '';
 
-  const visibleTaxGroups = r.taxGroups || [];
+  const visibleTaxGroups = (r.taxGroups || []).slice().sort((a,b)=> ukAlphabetSortKey(a.letter) - ukAlphabetSortKey(b.letter));
   const taxHtml = (visibleTaxGroups.length>0) ? `
     <div class="detail-subhead">Податкові групи</div>
     ${visibleTaxGroups.map(tx=>`
       <div class="detail-row">
-        <span class="detail-label">${escapeHtml(tx.label)}${tx.rate?(' · ставка '+escapeHtml(tx.rate)+'%'):''}</span>
+        <span class="detail-label">${escapeHtml(tx.label)}${tx.rate?(' · '+escapeHtml(tx.rate)+'%'):''}</span>
         <span class="detail-val">${fmtMoney(tx.sum)}</span>
       </div>
     `).join('')}
@@ -1658,9 +1792,13 @@ function renderSettlementCard(){
     ? `<div class="result-detail" style="margin-top:10px;">Не враховано у розрахунку: ${excludedCount} чек(ів) без вказаного платника.</div>`
     : '';
 
+  const subtitle = includedCount>1
+    ? ' <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">за всіма чеками</span>'
+    : '';
+
   return `
     <div class="card">
-      <h2>Взаєморозрахунок <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">за всі чеки</span></h2>
+      <h2><span class="num">5</span> Взаєморозрахунок${subtitle}</h2>
       <div class="result-grid">${balanceRows}</div>
       <div style="font-weight:700;font-size:0.85rem;margin:16px 0 8px;color:var(--ink-soft);">Хто кому переказує</div>
       <div class="result-grid">${transferRows}</div>
