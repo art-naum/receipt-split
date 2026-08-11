@@ -569,9 +569,13 @@ function parseRqSchema(doc, fileName){
     if(!name){
       name = costLines.length>0 ? costLines.join('; ') : '(без назви)';
     }
-    const qty = parseInt(p.getAttribute('Q')||'0',10)/1000;
-    const price = parseInt(p.getAttribute('PRC')||'0',10)/100;
+    const rawQty = parseInt(p.getAttribute('Q')||'0',10)/1000;
+    const rawPrice = parseInt(p.getAttribute('PRC')||'0',10)/100;
     let sum = parseInt(p.getAttribute('SM')||'0',10)/100;
+    // Якщо XML не містить кількість і ціну окремо, вважаємо:
+    // кількість = 1, ціна = вартість позиції.
+    const qty = rawQty > 0 ? rawQty : 1;
+    const price = rawPrice > 0 ? rawPrice : sum;
     const code = p.getAttribute('CD') || '';
     const taxGroup = p.getAttribute('LETTERS') || p.getAttribute('LETTER') || p.getAttribute('TX') || p.getAttribute('TAXGROUP') || '';
     const disc = discounts.find(d=>{
