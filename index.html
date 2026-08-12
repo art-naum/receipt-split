@@ -27,41 +27,66 @@
     --glass-border:rgba(255,255,255,0.14);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html{background:#05060d;transition:background .25s ease;}
+  html{background:#07080d;transition:background .25s ease;}
   body{
     margin:0;
     min-height:100vh;
     position:relative;
     isolation:isolate;
-    background:#05060d;
+    background:#07080d;
     color:var(--ink);
     font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
     padding:36px 16px 90px;
     -webkit-font-smoothing:antialiased;
   }
-  body::before{
-    content:'';
+  .bg-aurora{
     position:fixed;
-    inset:-10%;
+    inset:0;
     z-index:-1;
+    overflow:hidden;
+    pointer-events:none;
     background:
-      radial-gradient(ellipse 900px 700px at 18% 12%, rgba(60,78,150,0.55), transparent 60%),
-      radial-gradient(ellipse 800px 650px at 85% 6%, rgba(94,66,158,0.32), transparent 55%),
-      radial-gradient(ellipse 750px 600px at 92% 68%, rgba(48,64,124,0.40), transparent 55%),
-      radial-gradient(ellipse 1000px 800px at 30% 95%, rgba(34,46,92,0.45), transparent 60%),
-      radial-gradient(ellipse 700px 550px at 55% 45%, rgba(20,26,52,0.5), transparent 60%),
-      linear-gradient(165deg, #070a16 0%, #0b0f22 40%, #060811 70%, #05060d 100%);
-    filter:blur(70px) saturate(130%);
-    animation:auroraDrift 50s ease-in-out infinite alternate;
+      radial-gradient(ellipse 650px 550px at 45% 32%, rgba(16,20,38,0.20), transparent 60%),
+      linear-gradient(170deg, #08090e 0%, #090b14 35%, #08090d 65%, #07080b 100%);
+  }
+  .bg-aurora .blob{
+    position:absolute;
+    border-radius:50%;
+    filter:blur(70px);
     will-change:transform;
   }
-  @keyframes auroraDrift{
-    0%{ transform:scale(1) translate(0,0) rotate(0deg); }
-    50%{ transform:scale(1.12) translate(-2.5%,2%) rotate(2deg); }
-    100%{ transform:scale(1.05) translate(2%,-2.5%) rotate(-1.5deg); }
+  .bg-aurora .blob-a{
+    width:850px;height:680px;left:-12%;top:-14%;
+    background:radial-gradient(circle, rgba(58,80,152,0.30), transparent 70%);
+    animation:driftA 46s ease-in-out infinite alternate;
   }
+  .bg-aurora .blob-b{
+    width:700px;height:600px;right:-10%;top:-10%;
+    background:radial-gradient(circle, rgba(132,80,172,0.32), transparent 70%);
+    animation:driftB 52s ease-in-out infinite alternate;
+  }
+  .bg-aurora .blob-c{
+    width:780px;height:640px;right:-8%;top:34%;
+    background:radial-gradient(circle, rgba(34,140,148,0.34), transparent 70%);
+    animation:driftC 60s ease-in-out infinite alternate;
+  }
+  .bg-aurora .blob-d{
+    width:880px;height:720px;left:-10%;bottom:-14%;
+    background:radial-gradient(circle, rgba(158,78,116,0.30), transparent 70%);
+    animation:driftD 55s ease-in-out infinite alternate;
+  }
+  .bg-aurora .blob-e{
+    width:720px;height:580px;left:34%;top:42%;
+    background:radial-gradient(circle, rgba(96,132,90,0.22), transparent 70%);
+    animation:driftE 65s ease-in-out infinite alternate;
+  }
+  @keyframes driftA{0%{transform:translate(0,0) scale(1);}100%{transform:translate(7%,9%) scale(1.14);}}
+  @keyframes driftB{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-8%,7%) scale(1.08);}}
+  @keyframes driftC{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-6%,-10%) scale(1.16);}}
+  @keyframes driftD{0%{transform:translate(0,0) scale(1);}100%{transform:translate(9%,-6%) scale(1.10);}}
+  @keyframes driftE{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-7%,8%) scale(1.06);}}
   @media (prefers-reduced-motion: reduce){
-    body::before{animation:none;}
+    .bg-aurora .blob{animation:none;}
   }
   .wrap{max-width:900px;margin:0 auto;}
   h1{
@@ -433,7 +458,7 @@
     padding:4px 14px 8px;
     border-left:2px solid var(--line);
     background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0));
-    border-radius:0 12px 12px 0;
+    border-radius:12px;
   }
   .buyer-detail-row{
     display:flex;justify-content:space-between;gap:10px;
@@ -506,6 +531,13 @@
 </style>
 </head>
 <body>
+<div class="bg-aurora" aria-hidden="true">
+  <span class="blob blob-a"></span>
+  <span class="blob blob-b"></span>
+  <span class="blob blob-c"></span>
+  <span class="blob blob-d"></span>
+  <span class="blob blob-e"></span>
+</div>
 <div class="wrap">
   <div class="header-row">
     <h1>Розкладка чеку</h1>
@@ -654,11 +686,16 @@ function addBuyer(){
   input.focus();
 }
 let editingBuyerId = null;
+function resizeChipInput(el){
+  el.style.width = '4px';
+  const w = el.scrollWidth;
+  el.style.width = Math.max(w + 3, 24) + 'px';
+}
 function startEditBuyer(id){
   editingBuyerId = id;
   renderBuyers();
   const el = document.getElementById(`buyerEdit_${id}`);
-  if(el){ el.focus(); el.select(); }
+  if(el){ resizeChipInput(el); el.focus(); el.select(); }
 }
 function saveBuyerName(id, value){
   editingBuyerId = null;
@@ -688,14 +725,14 @@ function removeBuyer(id){
 function renderBuyers(){
   const el = document.getElementById('buyerList');
   if(state.buyers.length===0){
-    el.innerHTML = '<div class="empty">Додай хоча б одного покупця вище</div>';
+    el.innerHTML = '<div class="empty">Додай хоча б одного покупця</div>';
   }else{
     el.innerHTML = state.buyers.map(b=>{
       if(b.id===editingBuyerId){
         return `<span class="chip chip-editing">
-          <input type="text" class="chip-edit-input" id="buyerEdit_${b.id}" value="${escapeHtml(b.name)}" style="width:${Math.max(String(b.name).length, 3)}ch"
+          <input type="text" class="chip-edit-input" id="buyerEdit_${b.id}" value="${escapeHtml(b.name)}" style="width:${Math.max(String(b.name).length, 3)*1.5}ch"
             onkeydown="if(event.key==='Enter'){ this.blur(); }else if(event.key==='Escape'){ this.value=this.defaultValue; this.blur(); }"
-            onblur="saveBuyerName('${b.id}', this.value)" oninput="capitalizeFirst(this); this.style.width=Math.max(this.value.length,3)+'ch'">
+            onblur="saveBuyerName('${b.id}', this.value)" oninput="capitalizeFirst(this); resizeChipInput(this)">
         </span>`;
       }
       return `<span class="chip"><span class="chip-name" onclick="startEditBuyer('${b.id}')">${escapeHtml(b.name)}</span> <span class="del" onclick="event.stopPropagation();removeBuyer('${b.id}')">✕</span></span>`;
@@ -751,20 +788,21 @@ function parseRqSchema(doc, fileName){
   const eEl = cEl.querySelector(':scope > E');
 
   // Some PRRO models (e.g. Ukrposhta) print the receipt header/description as a series of
-  // free-text <L> lines instead of (or in addition to) a proper item <P NM="...">.
+  // free-text <L> lines instead of (or in addition to) a proper item <P NM="...">. These are
+  // shown verbatim in "Додаткові рядки чека" — they're not parsed for an item name.
   const lLines = Array.from(cEl.querySelectorAll(':scope > L'))
     .map(l => (l.textContent||'').trim())
     .filter(Boolean);
   const commentText = (doc.querySelector('DAT > COMMENT') ? doc.querySelector('DAT > COMMENT').textContent : '') || '';
   const commentLines = commentText.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
   const headerLines = [...lLines, ...commentLines];
-  const costLines = lLines.filter(l => /^За .*:.*\d/.test(l));
 
   const items = products.map(p=>{
     const n = p.getAttribute('N');
+    const code = p.getAttribute('CD') || p.getAttribute('C') || '';
     let name = p.getAttribute('NM') || '';
     if(!name){
-      name = costLines.length>0 ? costLines.join('; ') : '(без назви)';
+      name = code ? `Артикул ${code}` : '(без назви)';
     }
     const rawQty = parseInt(p.getAttribute('Q')||'0',10)/1000;
     const rawPrice = parseInt(p.getAttribute('PRC')||'0',10)/100;
@@ -773,7 +811,6 @@ function parseRqSchema(doc, fileName){
     // кількість = 1, ціна = вартість позиції.
     const qty = rawQty > 0 ? rawQty : 1;
     const price = rawPrice > 0 ? rawPrice : sum;
-    const code = p.getAttribute('CD') || '';
     const taxGroup = p.getAttribute('LETTERS') || p.getAttribute('LETTER') || p.getAttribute('TX') || p.getAttribute('TAXGROUP') || '';
     const disc = discounts.find(d=>{
       const directNi = d.getAttribute('NI');
