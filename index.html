@@ -27,18 +27,41 @@
     --glass-border:rgba(255,255,255,0.14);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html{background:#000;transition:background .25s ease;}
+  html{background:#05060d;transition:background .25s ease;}
   body{
     margin:0;
     min-height:100vh;
-    background:
-      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(10,132,255,0.16), transparent 60%),
-      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(191,90,242,0.10), transparent 55%),
-      #000000;
+    position:relative;
+    isolation:isolate;
+    background:#05060d;
     color:var(--ink);
     font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
     padding:36px 16px 90px;
     -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:'';
+    position:fixed;
+    inset:-10%;
+    z-index:-1;
+    background:
+      radial-gradient(ellipse 900px 700px at 18% 12%, rgba(60,78,150,0.55), transparent 60%),
+      radial-gradient(ellipse 800px 650px at 85% 6%, rgba(94,66,158,0.32), transparent 55%),
+      radial-gradient(ellipse 750px 600px at 92% 68%, rgba(48,64,124,0.40), transparent 55%),
+      radial-gradient(ellipse 1000px 800px at 30% 95%, rgba(34,46,92,0.45), transparent 60%),
+      radial-gradient(ellipse 700px 550px at 55% 45%, rgba(20,26,52,0.5), transparent 60%),
+      linear-gradient(165deg, #070a16 0%, #0b0f22 40%, #060811 70%, #05060d 100%);
+    filter:blur(70px) saturate(130%);
+    animation:auroraDrift 50s ease-in-out infinite alternate;
+    will-change:transform;
+  }
+  @keyframes auroraDrift{
+    0%{ transform:scale(1) translate(0,0) rotate(0deg); }
+    50%{ transform:scale(1.12) translate(-2.5%,2%) rotate(2deg); }
+    100%{ transform:scale(1.05) translate(2%,-2.5%) rotate(-1.5deg); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    body::before{animation:none;}
   }
   .wrap{max-width:900px;margin:0 auto;}
   h1{
@@ -401,12 +424,8 @@
     border-radius:16px;padding:12px 16px;
   }
   .result-buyer .name{font-weight:600;font-size:1.0rem;}
-  .result-buyer .name.chip{
-    font-size:0.85rem;
-    font-weight:500;
-    background:rgba(255,255,255,0.10);
-    border:1px solid var(--line);
-  }
+  .result-buyer.clickable{cursor:pointer;transition:background .15s ease;}
+  .result-buyer.clickable:active{background:linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02)), var(--field);}
   .result-buyer .sum{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:700;color:var(--accent-dark);font-size:1.05rem;}
   .result-buyer-wrap{margin-bottom:0;}
   .buyer-detail{
@@ -551,7 +570,7 @@ function round2(n){
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function fmtMoney(n){
-  return round2(n).toFixed(2).replace('.', ',') + ' ₴';
+  return round2(n).toFixed(2).replace('.', ',') + '\u00A0₴';
 }
 function fmtMoneyPlain(n){
   return round2(n).toFixed(2).replace('.', ',');
@@ -1849,8 +1868,8 @@ function renderResults(){
     ) : '';
     return `
       <div class="result-buyer-wrap">
-        <div class="result-buyer">
-          <span class="name chip" onclick="toggleBuyerDetail('${b.id}')">${escapeHtml(b.name)}</span>
+        <div class="result-buyer clickable" onclick="toggleBuyerDetail('${b.id}')">
+          <span class="name">${escapeHtml(b.name)}</span>
           <span class="sum">${fmtMoney(totals[b.id]||0)}</span>
         </div>
         ${detailHtml}
@@ -1967,12 +1986,17 @@ function describeAllocation(it, buyerNames){
   const alloc = allocateItem(it);
   let modeLabel = '';
   if(it.buyerIds.length>1){
-    if(it.mode==='equal') modeLabel = ' · порівну';
-    else if(it.manualType==='percent') modeLabel = ' · за відсотками';
-    else if(it.manualType==='fraction') modeLabel = ' · частками';
-    else modeLabel = ' · суми вручну';
+    if(it.mode==='equal') modeLabel = '· порівну';
+    else if(it.manualType==='percent') modeLabel = '· за відсотками';
+    else if(it.manualType==='fraction') modeLabel = '· частками';
+    else modeLabel = '· суми вручну';
   }
-  return it.buyerIds.map(bid=>`${escapeHtml((buyerNames&&buyerNames[bid])||'?')}: ${fmtMoney(alloc[bid]||0)}`).join(', ') + modeLabel;
+  // Each "name: sum" pair — and the mode label — must not break internally,
+  // but a line break is fine between pairs (regular breakable space/comma there).
+  const buyerParts = it.buyerIds
+    .map(bid=>`<span style="white-space:nowrap;">${escapeHtml((buyerNames&&buyerNames[bid])||'?')}: ${fmtMoney(alloc[bid]||0)}</span>`)
+    .join(', ');
+  return buyerParts + (modeLabel ? ` <span style="white-space:nowrap;">${modeLabel}</span>` : '');
 }
 function checkNoMatchesFileName(checkNo, fileName){
   if(!checkNo || !fileName) return false;
@@ -1996,10 +2020,12 @@ function renderHistory(){
     const expanded = expandedHistory.has(h.id);
     const hasDetail = Array.isArray(h.items) && h.items.length>0;
     const detailRows = hasDetail ? h.items.map(it=>`
-      <div class="rline" style="font-family:'Inter',sans-serif;">
-        <span class="r-name">${escapeHtml(it.name)}</span>
-        <span class="r-sum" style="font-weight:400;font-size:0.8rem;color:var(--ink-soft);">${describeAllocation(it, h.buyerNames)}</span>
-        <span class="r-sum">${fmtMoney(it.sum)}</span>
+      <div class="rline" style="font-family:'Inter',sans-serif;flex-direction:column;align-items:stretch;gap:4px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;">
+          <span class="r-name">${escapeHtml(it.name)}</span>
+          <span class="r-sum">${fmtMoney(it.sum)}</span>
+        </div>
+        <div style="font-size:0.78rem;color:var(--ink-soft);line-height:1.5;">${describeAllocation(it, h.buyerNames)}</div>
       </div>
     `).join('') : '<div class="empty" style="padding:10px;">Деталі позицій не збереглися для цього чека (старий формат файлу)</div>';
 
@@ -2023,7 +2049,7 @@ function renderHistory(){
 
   const grandRows = state.buyers.map(b=>`
     <div class="result-buyer">
-      <span class="name chip" style="cursor:default;pointer-events:none;">${escapeHtml(b.name)}</span>
+      <span class="name">${escapeHtml(b.name)}</span>
       <span class="sum">${fmtMoney(grand[b.id]||0)}</span>
     </div>
   `).join('');
