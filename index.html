@@ -467,6 +467,41 @@
     border-radius:14px;padding:11px 15px;font-size:0.85rem;font-weight:500;
     margin-bottom:14px;
   }
+  .progress-block{margin-bottom:16px;}
+  .progress-label{
+    font-size:0.8rem;color:var(--ink-soft);margin-bottom:8px;
+  }
+  .progress-bar{
+    position:relative;
+    height:22px;
+    border-radius:999px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)), var(--field);
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(255,255,255,0.10) inset;
+    overflow:hidden;
+  }
+  .progress-bar-fill{
+    height:100%;
+    border-radius:999px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0) 45%), linear-gradient(90deg, var(--accent-dark), var(--accent));
+    box-shadow:0 1px 0 rgba(255,255,255,0.35) inset;
+    transition:width .25s ease;
+  }
+  .progress-bar-fill.complete{background:linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0) 45%), linear-gradient(90deg, #30c751, #1e7e34);}
+  .progress-bar-pct{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:0.72rem;
+    font-weight:700;
+    color:#fff;
+    text-shadow:0 1px 2px rgba(0,0,0,0.55);
+    pointer-events:none;
+  }
 
   /* --- results --- */
   .result-grid{display:flex;flex-direction:column;gap:10px;}
@@ -501,25 +536,6 @@
   .bd-name{color:var(--ink);flex:1 1 auto;min-width:0;overflow-wrap:anywhere;word-break:break-word;}
   .bd-share{color:var(--muted);font-size:0.76rem;white-space:nowrap;flex:0 0 75px;text-align:right;}
   .bd-amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:600;color:var(--ink);white-space:nowrap;flex:0 0 70px;text-align:right;}
-  .result-total{
-    background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0)), var(--accent-soft);
-    backdrop-filter:blur(24px) saturate(180%);
-    -webkit-backdrop-filter:blur(24px) saturate(180%);
-    border:1px solid var(--accent);
-    box-shadow:0 1px 0 rgba(255,255,255,0.2) inset;
-    border-radius:16px;
-    margin-top:10px;
-    padding:10px 16px;
-  }
-  .result-total .name{
-    font-family:inherit;
-    font-weight:700;
-    letter-spacing:0.09em;
-    text-transform:uppercase;
-    font-size:0.76rem;
-    color:var(--ink-soft);
-  }
-  .result-total .sum{font-size:1.05rem;color:var(--ink);font-weight:700;}
   .result-detail{font-size:0.76rem;color:var(--muted);margin-top:3px;}
   .balance-row{
     display:flex;justify-content:space-between;align-items:center;
@@ -530,7 +546,9 @@
     box-shadow:0 1px 0 rgba(255,255,255,0.10) inset;
     border-radius:16px;padding:12px 16px;
   }
+  .balance-who{display:flex;flex-direction:column;gap:3px;}
   .balance-row .name{font-weight:600;font-size:1.0rem;}
+  .balance-paid{font-size:0.74rem;color:var(--muted);font-weight:500;}
   .balance-row .amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:700;font-size:1.0rem;}
   .balance-row .amt.pos{color:#32d74b;}
   .balance-row .amt.neg{color:var(--danger);}
@@ -1785,6 +1803,15 @@ function pluralChastka(n){
   if(rem10>=2 && rem10<=4) return 'частки';
   return 'часток';
 }
+function pluralPozytsiya(n){
+  n = Math.round(Math.abs(n));
+  const rem100 = n % 100;
+  const rem10 = n % 10;
+  if(rem100>=11 && rem100<=14) return 'позицій';
+  if(rem10===1) return 'позиція';
+  if(rem10>=2 && rem10<=4) return 'позиції';
+  return 'позицій';
+}
 function gcd(a,b){ a=Math.round(Math.abs(a)); b=Math.round(Math.abs(b)); return b===0 ? a : gcd(b, a%b); }
 function buyerItemBreakdown(bid){
   if(!state.receipt) return [];
@@ -1850,7 +1877,7 @@ function computeGlobalBalances(){
 
   const balances = {};
   state.buyers.forEach(b=>{ balances[b.id] = round2((paid[b.id]||0) - (consumed[b.id]||0)); });
-  return { balances, includedCount, excludedCount };
+  return { balances, paid, includedCount, excludedCount };
 }
 
 // Greedy debt simplification: repeatedly matches the biggest debtor with the
@@ -1880,7 +1907,7 @@ function simplifyDebts(balances){
 }
 
 function renderSettlementCard(){
-  const { balances, includedCount, excludedCount } = computeGlobalBalances();
+  const { balances, paid, includedCount, excludedCount } = computeGlobalBalances();
   if(includedCount===0) return '';
 
   const buyerName = bid => { const b=state.buyers.find(x=>x.id===bid); return b?b.name:'?'; };
@@ -1891,7 +1918,10 @@ function renderSettlementCard(){
     const tag = bal>0.005 ? 'йому винні' : (bal<-0.005 ? 'він винен' : 'у розрахунку');
     return `
       <div class="balance-row">
-        <span class="name">${escapeHtml(b.name)}</span>
+        <div class="balance-who">
+          <span class="name">${escapeHtml(b.name)}</span>
+          <span class="balance-paid">сплатив ${fmtMoney(paid[b.id]||0)}</span>
+        </div>
         <span><span class="tag">${tag}</span><span class="amt ${cls}">${bal>0?'+':''}${fmtMoney(bal)}</span></span>
       </div>
     `;
@@ -1975,12 +2005,7 @@ function renderResults(){
         ${detailHtml}
       </div>
     `;
-  }).join('') + `
-    <div class="result-buyer result-total">
-      <span class="name">Разом</span>
-      <span class="sum">${fmtMoney(grandTotal)}</span>
-    </div>
-  `;
+  }).join('');
 
   let warnings = '';
   if(unassigned > 0.01){
@@ -1990,10 +2015,31 @@ function renderResults(){
     warnings += `<div class="warn-banner">В одній або кількох позиціях ручний розподіл не збігається з сумою позиції — перевір поле "Залишилось".</div>`;
   }
 
+  const totalItemsCount = state.receipt.items.length;
+  const assignedItemsCount = state.receipt.items.filter(it=>it.buyerIds.length>0).length;
+  const allItemsAssigned = totalItemsCount>0 && assignedItemsCount===totalItemsCount;
+  const progressPct = state.receipt.totalSum > 0.004
+    ? Math.max(0, Math.min(100, (grandTotal/state.receipt.totalSum)*100))
+    : 100;
+  const progressComplete = allItemsAssigned;
+  const progressLabelText = allItemsAssigned
+    ? `Всі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`
+    : `Розподілено позицій ${assignedItemsCount} з ${totalItemsCount}, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(state.receipt.totalSum)}`;
+  const progressHtml = `
+    <div class="progress-block">
+      <div class="progress-label">${progressLabelText}</div>
+      <div class="progress-bar">
+        <div class="progress-bar-fill${progressComplete?' complete':''}" style="width:${progressPct}%;"></div>
+        <div class="progress-bar-pct">${Math.round(progressPct)}%</div>
+      </div>
+    </div>
+  `;
+
   el.innerHTML = `
     <div class="card">
       <h2><span class="num">4</span> Підсумок по покупцях</h2>
       ${warnings}
+      ${progressHtml}
       <div class="result-grid">${rows}</div>
       <div class="toolbar">
         <button class="btn-primary" onclick="saveToHistory()">Зберегти чек в історію</button>
