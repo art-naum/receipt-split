@@ -263,6 +263,21 @@
   }
   .upload-zone:hover{border-color:var(--accent);background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0)), var(--accent-soft);}
   .upload-zone b{color:var(--ink);}
+  .link-btn{
+    background:none;
+    border:none;
+    padding:0;
+    margin:0;
+    color:var(--accent-dark);
+    font-size:0.8rem;
+    font-weight:600;
+    cursor:pointer;
+    text-decoration:underline dotted;
+    text-underline-offset:3px;
+    white-space:nowrap;
+  }
+  .link-btn:hover{color:var(--accent);}
+  .link-btn:active{transform:scale(0.97);}
 
   /* --- receipt strip --- */
   .receipt-outer{
@@ -348,6 +363,22 @@
     font-family:inherit;font-weight:600;color:var(--ink-soft);
     margin:14px 0 4px;font-size:0.82rem;
   }
+  .section-kicker{
+    display:flex;align-items:center;gap:8px;
+    font-size:0.72rem;
+    font-weight:700;
+    letter-spacing:0.09em;
+    text-transform:uppercase;
+    color:var(--accent-dark);
+    margin-bottom:10px;
+  }
+  .section-kicker::before{
+    content:'';
+    width:16px;height:2px;
+    border-radius:2px;
+    background:linear-gradient(90deg, var(--accent), rgba(10,132,255,0.3));
+    flex-shrink:0;
+  }
   .receipt-qr{
     text-align:center;
     margin-top:18px;
@@ -378,7 +409,7 @@
   }
 
   /* --- assignment block --- */
-  .assign-block{margin-top:8px;padding-top:12px;border-top:1px solid var(--line);}
+  .assign-block{margin-top:0;}
   .assign-row{
     display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;
     font-family:inherit;
@@ -554,22 +585,11 @@
     <div class="buyer-list" id="buyerList"></div>
   </div>
 
-  <!-- UPLOAD -->
-  <div class="card">
-    <h2><span class="num">2</span> Чек</h2>
-    <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
-      <b>Натисни, щоб обрати XML-файл чеку</b><br>або перетягни його сюди
-    </div>
-    <input type="file" id="fileInput" accept=".xml" onchange="handleFile(this.files[0])">
-  </div>
-
-  <!-- RECEIPT (paper) -->
+  <!-- CHECK (upload zone OR the loaded receipt — same numbered section, one replaces the other) -->
+  <input type="file" id="fileInput" accept=".xml" onchange="handleFile(this.files[0])">
   <div id="receiptSection"></div>
 
-  <!-- PAID BY -->
-  <div id="paidBySection"></div>
-
-  <!-- ASSIGNMENT -->
+  <!-- PAYMENT + ASSIGNMENT (who paid + who owns what, merged into one numbered section) -->
   <div id="assignSection"></div>
 
   <!-- RESULTS -->
@@ -748,6 +768,13 @@ function updateSaveButtonVisibility(){
 }
 
 /* ---------- FILE HANDLING ---------- */
+function requestReupload(){
+  const ok = confirm('Зараз у роботі вже є завантажений чек. Завантаження нового призведе до втрати поточного прогресу розподілу (сам чек не пропаде, зможеш завантажити його XML ще раз). Продовжити?');
+  if(!ok) return;
+  state.receipt = null;
+  renderReceipt();
+  renderResults();
+}
 async function handleFile(file){
   if(!file) return;
   try{
@@ -1119,14 +1146,32 @@ function parseCheckSchema(doc, fileName){
 /* ---------- RECEIPT + ASSIGNMENT RENDERING ---------- */
 function renderReceipt(){
   const el = document.getElementById('receiptSection');
-  const paidByEl = document.getElementById('paidBySection');
   const assignEl = document.getElementById('assignSection');
-  if(!state.receipt){ el.innerHTML=''; paidByEl.innerHTML=''; assignEl.innerHTML=''; return; }
+
+  if(!state.receipt){
+    el.innerHTML = `
+      <div class="card">
+        <h2><span class="num">2</span> Чек</h2>
+        <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
+          <b>Натисни, щоб обрати XML-файл чеку</b><br>або перетягни його сюди
+        </div>
+      </div>
+    `;
+    assignEl.innerHTML = '';
+    return;
+  }
   const r = state.receipt;
 
   if(state.buyers.length===0){
-    el.innerHTML = '<div class="warn-banner">Спочатку додай покупців у розділі 1 — тоді зможеш розподілити позиції.</div>';
-    paidByEl.innerHTML = '';
+    el.innerHTML = `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <h2 style="margin:0;"><span class="num">2</span> Чек ${r.checkNo?('№'+r.checkNo):''}</h2>
+          <button type="button" class="link-btn" onclick="requestReupload()">Завантажити інший чек</button>
+        </div>
+        <div class="warn-banner">Спочатку додай покупців у розділі 1 — тоді зможеш розподілити позиції.</div>
+      </div>
+    `;
     assignEl.innerHTML = '';
     return;
   }
@@ -1145,12 +1190,14 @@ function renderReceipt(){
 
   const assignRows = r.items.map(it=>renderAssignRow(it)).join('');
   const detailsBlock = renderReceiptDetails(r);
-
-  paidByEl.innerHTML = renderPaidByBlock(r);
+  const paidByBlock = renderPaidByBlock(r);
 
   el.innerHTML = `
     <div class="card">
-      <h2><span class="num">2</span> Чек ${r.checkNo?('№'+r.checkNo):''}</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+        <h2 style="margin:0;"><span class="num">2</span> Чек ${r.checkNo?('№'+r.checkNo):''}</h2>
+        <button type="button" class="link-btn" onclick="requestReupload()">Завантажити інший чек</button>
+      </div>
       <div class="receipt-outer">
         <div class="receipt-inner">
           <div class="receipt-head">
@@ -1169,7 +1216,11 @@ function renderReceipt(){
 
   assignEl.innerHTML = `
     <div class="card">
-      <h2><span class="num">3</span> Чиї це покупки</h2>
+      <h2 style="margin-bottom:0;"><span class="num">3</span> Оплата та розподіл</h2>
+      <div class="section-kicker" style="margin:25px 0;">Хто сплатив чек:</div>
+      ${paidByBlock}
+      <div style="margin:18px 0 0;border-top:1px dashed var(--line);"></div>
+      <div class="section-kicker" style="margin:25px 0 9px;">Чиї це покупки:</div>
       <div class="assign-block">${assignRows}</div>
     </div>
   `;
@@ -1378,6 +1429,7 @@ function togglePayer(buyerId){
   const idx = r.paidBy.findIndex(p=>p.buyerId===buyerId);
   if(idx>=0) r.paidBy.splice(idx,1);
   else r.paidBy.push({buyerId, amount:''});
+  r.paidByOverLimit = false;
   reseedPaidByAmounts(r);
   renderReceipt();
   renderResults();
@@ -1399,9 +1451,23 @@ function setPaidAmount(buyerId, value){
 
   // With exactly two payers there's only one way to split the total, so the
   // second field balances itself instead of making the user correct it by hand.
+  // If the entered amount alone already exceeds the receipt total, the other
+  // payer can't owe a negative amount — clamp it to 0 and flag the overflow
+  // so renderPaidByBlock can explain why, instead of showing a negative sum.
   if(r.paidBy.length===2){
     const other = r.paidBy.find(x=>x.buyerId!==buyerId);
-    if(other) other.amount = round2(r.totalSum - (parseFloat(value)||0));
+    if(other){
+      const numVal = parseFloat(value)||0;
+      if(numVal > r.totalSum + 0.004){
+        other.amount = 0;
+        r.paidByOverLimit = true;
+      }else{
+        other.amount = round2(r.totalSum - numVal);
+        r.paidByOverLimit = false;
+      }
+    }
+  }else{
+    r.paidByOverLimit = false;
   }
 
   const fieldId = `pv_${buyerId}`;
@@ -1442,6 +1508,7 @@ function renderPaidByBlock(r){
 
   let manualRows = '';
   if(r.paidBy.length>1){
+    if(r.paidBy.length!==2) r.paidByOverLimit = false;
     manualRows = r.paidBy.map(p=>{
       const b = buyers.find(x=>x.id===p.buyerId);
       const active = document.activeElement;
@@ -1459,7 +1526,9 @@ function renderPaidByBlock(r){
     const remainder = Math.round((r.totalSum-allocated)*100)/100;
     const ok = Math.abs(remainder) < 0.01;
     if(ok){
-      manualRows += `<div class="remainder ok">Розподілено повністю ✓</div>`;
+      manualRows += `<div class="remainder ok">Сплачена сума збігається з сумою чеку ✓</div>`;
+    }else if(r.paidByOverLimit){
+      manualRows += `<div class="remainder bad">Сплачена сума не може перевищувати суму чеку</div>`;
     }else{
       const targetBid = (r.lastFocusedPayer && r.paidBy.some(p=>p.buyerId===r.lastFocusedPayer)) ? r.lastFocusedPayer : r.paidBy[0].buyerId;
       const current = parseFloat((r.paidBy.find(p=>p.buyerId===targetBid)||{}).amount) || 0;
@@ -1467,21 +1536,19 @@ function renderPaidByBlock(r){
       const inner = clickable
         ? `<span class="remainder-link" onmousedown="event.preventDefault()" onclick="addPaidRemainderToFocused(${remainder})">${fmtMoney(remainder)}</span>`
         : fmtMoney(remainder);
-      manualRows += `<div class="remainder bad">Залишилось: ${inner}</div>`;
+      const label = remainder < 0 ? 'Зайві' : 'Залишилось';
+      manualRows += `<div class="remainder bad">${label}: ${inner}</div>`;
     }
   }
 
   const note = r.paidBy.length===0
-    ? '<div class="sub" style="color:var(--muted);margin-top:8px;">Не вказано — цей чек не увійде у взаєморозрахунок нижче.</div>'
+    ? '<div class="remainder bad" style="margin-top:8px;">Оберіть хоча б одного платника — інакше чек не врахується у розділі «Взаєморозрахунок»</div>'
     : '';
 
   return `
-    <div class="card">
-      <h2>Хто сплатив чек</h2>
-      <div class="row">${chips}</div>
-      ${manualRows}
-      ${note}
-    </div>
+    <div class="row">${chips}</div>
+    ${manualRows}
+    ${note}
   `;
 }
 
@@ -1549,7 +1616,8 @@ function renderAssignRow(it){
         const inner = clickable
           ? `<span class="remainder-link" onmousedown="event.preventDefault()" onclick="addRemainderToFocused('${it.id}', ${remainder})">${remainderDisplay}</span>`
           : remainderDisplay;
-        modeUi += `<div class="remainder bad">Залишилось: ${inner}</div>`;
+        const label = remainder < 0 ? 'Зайві' : 'Залишилось';
+        modeUi += `<div class="remainder bad">${label}: ${inner}</div>`;
       }
     }
   }
@@ -1596,25 +1664,20 @@ function setItemMode(itemId, mode, manualType){
       // switching between amount/percent/fraction: values on different scales, reseed cleanly
       it.manualValues = {};
     }
-    const n = it.buyerIds.length;
-    if(it.manualType==='amount'){
+    if(it.manualType==='amount' || it.manualType==='percent'){
       const undefinedBids = it.buyerIds.filter(bid=>it.manualValues[bid]===undefined);
       if(undefinedBids.length>0){
+        const total = it.manualType==='percent' ? 100 : it.sum;
         const alreadyAssigned = it.buyerIds.reduce((a,bid)=>a + (it.manualValues[bid]!==undefined ? (parseFloat(it.manualValues[bid])||0) : 0), 0);
-        const remaining = it.sum - alreadyAssigned;
-        const base = Math.floor((remaining/undefinedBids.length)*100)/100;
-        let assigned = 0;
-        undefinedBids.forEach((bid,idx)=>{
-          if(idx < undefinedBids.length-1){ it.manualValues[bid]=base; assigned+=base; }
-          else { it.manualValues[bid] = Math.round((remaining-assigned)*100)/100; }
-        });
+        const remaining = total - alreadyAssigned;
+        // floor+remainder-to-last, same recipe as allocateItem(), so percentages/amounts
+        // always sum exactly to 100% / the item total instead of drifting from rounding.
+        const amounts = splitProportionally(remaining, new Array(undefinedBids.length).fill(1));
+        undefinedBids.forEach((bid,idx)=>{ it.manualValues[bid] = amounts[idx]; });
       }
-    }else{
+    }else if(it.manualType==='fraction'){
       it.buyerIds.forEach(bid=>{
-        if(it.manualValues[bid]===undefined){
-          if(it.manualType==='percent') it.manualValues[bid] = Math.round((100/n)*100)/100;
-          else if(it.manualType==='fraction') it.manualValues[bid] = 1;
-        }
+        if(it.manualValues[bid]===undefined) it.manualValues[bid] = 1;
       });
     }
   }
@@ -1856,7 +1919,7 @@ function renderSettlementCard(){
     <div class="card">
       <h2><span class="num">5</span> Взаєморозрахунок${subtitle}</h2>
       <div class="result-grid">${balanceRows}</div>
-      <div style="font-weight:700;font-size:0.85rem;margin:16px 0 8px;color:var(--ink-soft);">Хто кому переказує</div>
+      <div style="font-weight:700;font-size:0.85rem;margin:16px 0 8px;padding-left:16px;color:var(--ink-soft);">Хто кому переказує</div>
       <div class="result-grid">${transferRows}</div>
       ${note}
     </div>
@@ -2139,11 +2202,22 @@ function escapeHtml(s){
 }
 
 
-// drag & drop support
-const zone = document.getElementById('uploadZone');
-zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.style.borderColor='var(--accent)'; });
-zone.addEventListener('dragleave', ()=>{ zone.style.borderColor='var(--line)'; });
-zone.addEventListener('drop', e=>{
+// drag & drop support (delegated: #uploadZone only exists in the DOM before a receipt is loaded)
+const receiptSectionEl = document.getElementById('receiptSection');
+receiptSectionEl.addEventListener('dragover', e=>{
+  const zone = e.target.closest('#uploadZone');
+  if(!zone) return;
+  e.preventDefault();
+  zone.style.borderColor='var(--accent)';
+});
+receiptSectionEl.addEventListener('dragleave', e=>{
+  const zone = e.target.closest('#uploadZone');
+  if(!zone) return;
+  zone.style.borderColor='var(--line)';
+});
+receiptSectionEl.addEventListener('drop', e=>{
+  const zone = e.target.closest('#uploadZone');
+  if(!zone) return;
   e.preventDefault();
   zone.style.borderColor='var(--line)';
   if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
@@ -2152,6 +2226,7 @@ zone.addEventListener('drop', e=>{
 renderBuyers();
 renderHistory();
 renderResults();
+renderReceipt();
 </script>
 </body>
 </html>
