@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Розкладка чеку</title>
+<title>Розподіл чеку</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
   :root{
@@ -590,7 +590,7 @@
 </div>
 <div class="wrap">
   <div class="header-row">
-    <h1>Розкладка чеку</h1>
+    <h1>Розподіл чеку</h1>
   </div>
   <div class="subtitle">Завантаж фіскальний чек (XML), познач, чиї це покупки — і одразу побачиш, скільки має віддати кожен.</div>
 
@@ -725,10 +725,13 @@ function addBuyer(){
   input.focus();
 }
 let editingBuyerId = null;
+// Native `size` attribute: the browser computes pixel width for that many
+// characters using its own font metrics — no JS measurement hack needed, and
+// (unlike shrink-then-read-scrollWidth) it renders identically across engines,
+// including Firefox, where <input>.scrollWidth does not reliably reflect the
+// true content width once the field has been squeezed narrower than its text.
 function resizeChipInput(el){
-  el.style.width = '4px';
-  const w = el.scrollWidth;
-  el.style.width = Math.max(w + 3, 24) + 'px';
+  el.size = Math.max((el.value || '').length, 1);
 }
 function startEditBuyer(id){
   editingBuyerId = id;
@@ -769,7 +772,7 @@ function renderBuyers(){
     el.innerHTML = state.buyers.map(b=>{
       if(b.id===editingBuyerId){
         return `<span class="chip chip-editing">
-          <input type="text" class="chip-edit-input" id="buyerEdit_${b.id}" value="${escapeHtml(b.name)}" style="width:${Math.max(String(b.name).length, 3)*1.5}ch"
+          <input type="text" class="chip-edit-input" id="buyerEdit_${b.id}" value="${escapeHtml(b.name)}" size="${Math.max(String(b.name).length, 1)}"
             onkeydown="if(event.key==='Enter'){ this.blur(); }else if(event.key==='Escape'){ this.value=this.defaultValue; this.blur(); }"
             onblur="saveBuyerName('${b.id}', this.value)" oninput="capitalizeFirst(this); resizeChipInput(this)">
         </span>`;
@@ -1878,7 +1881,7 @@ function computeGlobalBalances(){
 
   const balances = {};
   state.buyers.forEach(b=>{ balances[b.id] = round2((paid[b.id]||0) - (consumed[b.id]||0)); });
-  return { balances, paid, includedCount, excludedCount };
+  return { balances, paid, consumed, includedCount, excludedCount };
 }
 
 // Greedy debt simplification: repeatedly matches the biggest debtor with the
@@ -1908,7 +1911,7 @@ function simplifyDebts(balances){
 }
 
 function renderSettlementCard(){
-  const { balances, paid, includedCount, excludedCount } = computeGlobalBalances();
+  const { balances, paid, consumed, includedCount, excludedCount } = computeGlobalBalances();
   if(includedCount===0) return '';
 
   const buyerName = bid => { const b=state.buyers.find(x=>x.id===bid); return b?b.name:'?'; };
@@ -1918,7 +1921,11 @@ function renderSettlementCard(){
     const cls = bal>0.005 ? 'pos' : (bal<-0.005 ? 'neg' : '');
     const tag = bal>0.005 ? 'йому винні' : (bal<-0.005 ? 'він винен' : 'у розрахунку');
     const paidAmt = paid[b.id]||0;
-    const paidLine = paidAmt>0.005 ? `<span class="balance-paid">сплатив ${fmtMoney(paidAmt)}</span>` : '';
+    const consumedAmt = consumed[b.id]||0;
+    const paidPart = paidAmt>0.005 ? `сплатив\u00A0<strong>${fmtMoney(paidAmt)}</strong>` : '';
+    const consumedPart = consumedAmt>0.005 ? `витратив\u00A0${fmtMoney(consumedAmt)}` : '';
+    const spendParts = [paidPart, consumedPart].filter(Boolean).join(' · ');
+    const paidLine = spendParts ? `<span class="balance-paid">${spendParts}</span>` : '';
     return `
       <div class="balance-row">
         <div class="balance-who">
@@ -2013,16 +2020,18 @@ function renderResults(){
     `;
   }).join('');
 
+  const totalItemsCount = state.receipt.items.length;
+  const assignedItemsCount = state.receipt.items.filter(it=>it.buyerIds.length>0).length;
+  const unassignedItemsCount = totalItemsCount - assignedItemsCount;
+
   let warnings = '';
   if(unassigned > 0.01){
-    warnings += `<div class="warn-banner">Не розподілено на суму ${fmtMoney(unassigned)} — деякі позиції без покупця.</div>`;
+    warnings += `<div class="warn-banner">Не розподілено на суму ${fmtMoney(unassigned)} — ${unassignedItemsCount} ${pluralPozytsiya(unassignedItemsCount)} все ще без покупця.</div>`;
   }
   if(manualMismatch){
     warnings += `<div class="warn-banner">В одній або кількох позиціях ручний розподіл не збігається з сумою позиції — перевір поле "Залишилось".</div>`;
   }
 
-  const totalItemsCount = state.receipt.items.length;
-  const assignedItemsCount = state.receipt.items.filter(it=>it.buyerIds.length>0).length;
   const allItemsAssigned = totalItemsCount>0 && assignedItemsCount===totalItemsCount;
   const progressPct = state.receipt.totalSum > 0.004
     ? Math.max(0, Math.min(100, (grandTotal/state.receipt.totalSum)*100))
@@ -2030,7 +2039,7 @@ function renderResults(){
   const progressComplete = allItemsAssigned;
   const progressLabelText = allItemsAssigned
     ? `Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`
-    : `Розподілено позицій ${assignedItemsCount} з ${totalItemsCount}, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(state.receipt.totalSum)}`;
+    : `Розподілено ${assignedItemsCount} з ${totalItemsCount} позицій, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(state.receipt.totalSum)}`;
   const progressHtml = `
     <div class="progress-block">
       <div class="progress-label">${progressLabelText}</div>
@@ -2162,11 +2171,6 @@ function renderHistory(){
     updateSaveButtonVisibility();
     return;
   }
-  const grand = {};
-  state.buyers.forEach(b=> grand[b.id]=0);
-  state.history.forEach(h=>{
-    h.totals.forEach(t=>{ if(grand[t.buyerId]!==undefined) grand[t.buyerId]+=t.sum; });
-  });
 
   const items = state.history.map(h=>{
     const expanded = expandedHistory.has(h.id);
@@ -2199,18 +2203,7 @@ function renderHistory(){
   `;
   }).join('');
 
-  const grandRows = state.buyers.map(b=>`
-    <div class="result-buyer">
-      <span class="name">${escapeHtml(b.name)}</span>
-      <span class="sum">${fmtMoney(grand[b.id]||0)}</span>
-    </div>
-  `).join('');
-
-  el.innerHTML = items + (state.history.length>1 ? `
-    <div style="margin-top:16px;">
-      <div style="font-weight:700;margin-bottom:8px;">Разом по всіх чеках</div>
-      <div class="result-grid">${grandRows}</div>
-    </div>` : '');
+  el.innerHTML = items;
   updateSaveButtonVisibility();
 }
 
