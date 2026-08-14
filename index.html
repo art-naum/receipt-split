@@ -234,7 +234,7 @@
     background:transparent;
     border:none;
     outline:none;
-    min-width:40px;
+    min-width:0;
     padding:0;
   }
   .buyer-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
@@ -538,7 +538,7 @@
   .bd-amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:600;color:var(--ink);white-space:nowrap;flex:0 0 70px;text-align:right;}
   .result-detail{font-size:0.76rem;color:var(--muted);margin-top:3px;}
   .balance-row{
-    display:flex;justify-content:space-between;align-items:center;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;
     background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)), var(--field);
     backdrop-filter:blur(24px) saturate(180%);
     -webkit-backdrop-filter:blur(24px) saturate(180%);
@@ -546,13 +546,14 @@
     box-shadow:0 1px 0 rgba(255,255,255,0.10) inset;
     border-radius:16px;padding:12px 16px;
   }
-  .balance-who{display:flex;flex-direction:column;gap:3px;}
+  .balance-who{display:flex;flex-direction:column;gap:3px;min-width:0;}
   .balance-row .name{font-weight:600;font-size:1.0rem;}
   .balance-paid{font-size:0.74rem;color:var(--muted);font-weight:500;}
-  .balance-row .amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:700;font-size:1.0rem;}
+  .balance-amt-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;}
+  .balance-row .amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:700;font-size:1.0rem;white-space:nowrap;}
   .balance-row .amt.pos{color:#32d74b;}
   .balance-row .amt.neg{color:var(--danger);}
-  .balance-row .tag{font-size:0.72rem;color:var(--muted);font-weight:500;margin-right:8px;}
+  .balance-row .tag{font-size:0.72rem;color:var(--muted);font-weight:500;white-space:nowrap;}
   .transfer-row{
     display:flex;justify-content:space-between;align-items:center;gap:10px;
     padding:11px 16px;
@@ -1916,13 +1917,18 @@ function renderSettlementCard(){
     const bal = balances[b.id]||0;
     const cls = bal>0.005 ? 'pos' : (bal<-0.005 ? 'neg' : '');
     const tag = bal>0.005 ? 'йому винні' : (bal<-0.005 ? 'він винен' : 'у розрахунку');
+    const paidAmt = paid[b.id]||0;
+    const paidLine = paidAmt>0.005 ? `<span class="balance-paid">сплатив ${fmtMoney(paidAmt)}</span>` : '';
     return `
       <div class="balance-row">
         <div class="balance-who">
           <span class="name">${escapeHtml(b.name)}</span>
-          <span class="balance-paid">сплатив ${fmtMoney(paid[b.id]||0)}</span>
+          ${paidLine}
         </div>
-        <span><span class="tag">${tag}</span><span class="amt ${cls}">${bal>0?'+':''}${fmtMoney(bal)}</span></span>
+        <div class="balance-amt-wrap">
+          <span class="amt ${cls}">${bal>0?'+':''}${fmtMoney(bal)}</span>
+          <span class="tag">${tag}</span>
+        </div>
       </div>
     `;
   }).join('');
@@ -1935,7 +1941,7 @@ function renderSettlementCard(){
           <span class="amt">${fmtMoney(t.amount)}</span>
         </div>
       `).join('')
-    : '<div class="empty">Всі розрахунки закриті ✓</div>';
+    : '<div class="empty">Усі розрахунки закриті ✓</div>';
 
   const note = excludedCount>0
     ? `<div class="result-detail" style="margin-top:10px;">Не враховано у розрахунку: ${excludedCount} чек(ів) без вказаного платника.</div>`
@@ -2009,7 +2015,7 @@ function renderResults(){
 
   let warnings = '';
   if(unassigned > 0.01){
-    warnings += `<div class="warn-banner">Не розподілено на сумму ${fmtMoney(unassigned)} — деякі позиції без покупця.</div>`;
+    warnings += `<div class="warn-banner">Не розподілено на суму ${fmtMoney(unassigned)} — деякі позиції без покупця.</div>`;
   }
   if(manualMismatch){
     warnings += `<div class="warn-banner">В одній або кількох позиціях ручний розподіл не збігається з сумою позиції — перевір поле "Залишилось".</div>`;
@@ -2023,7 +2029,7 @@ function renderResults(){
     : 100;
   const progressComplete = allItemsAssigned;
   const progressLabelText = allItemsAssigned
-    ? `Всі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`
+    ? `Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`
     : `Розподілено позицій ${assignedItemsCount} з ${totalItemsCount}, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(state.receipt.totalSum)}`;
   const progressHtml = `
     <div class="progress-block">
