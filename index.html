@@ -833,7 +833,8 @@ function parseRqSchema(doc, fileName){
   const datEl = doc.querySelector('DAT');
   const products = Array.from(cEl.querySelectorAll(':scope > P'));
   const discounts = Array.from(cEl.querySelectorAll(':scope > D'));
-  const mEl = cEl.querySelector(':scope > M');
+  const mEls = Array.from(cEl.querySelectorAll(':scope > M'));
+  const mEl = mEls[0] || null;
   const eEl = cEl.querySelector(':scope > E');
 
   // Some PRRO models (e.g. Ukrposhta) print the receipt header/description as a series of
@@ -878,8 +879,16 @@ function parseRqSchema(doc, fileName){
     };
   });
 
-  const totalSum = mEl ? parseInt(mEl.getAttribute('SM')||'0',10)/100 : items.reduce((a,i)=>a+i.sum,0);
-  const payMethod = mEl ? (mEl.getAttribute('NM') || mEl.getAttribute('PSNM') || '') : '';
+  // The <E> element's SM is the authoritative, final (already-rounded) receipt total —
+  // the same figure printed as "РАЗОМ". Falling back to the payment's SM here would be
+  // wrong for cash payments, where SM is the amount tendered by the customer (which can
+  // be far larger than the sale itself, e.g. handing over a round banknote for change).
+  const totalSum = eEl && eEl.getAttribute('SM')
+    ? parseInt(eEl.getAttribute('SM')||'0',10)/100
+    : (mEl ? parseInt(mEl.getAttribute('SM')||'0',10)/100 : items.reduce((a,i)=>a+i.sum,0));
+  const payMethod = mEls.length>1
+    ? 'Змішана оплата'
+    : (mEl ? (mEl.getAttribute('NM') || mEl.getAttribute('PSNM') || '') : '');
   const macEl = doc.querySelector('MAC');
   const checkNoFromFileName = extractCheckNoFromFileName(fileName);
   const checkNo = (macEl && macEl.getAttribute('ID')) || checkNoFromFileName || (eEl ? eEl.getAttribute('NO') : '') || '';
@@ -910,19 +919,31 @@ function parseRqSchema(doc, fileName){
   const docNumber = datEl ? datEl.getAttribute('DI') : '';
   const shiftSerial = eEl ? eEl.getAttribute('SE') : '';
 
-  // card / payment details
-  let payment = null;
-  if(mEl){
-    payment = {
-      label: mEl.getAttribute('NM') || '',
-      system: mEl.getAttribute('PSNM') || '',
-      cardMasked: mEl.getAttribute('PD') || '',
-      authCode: mEl.getAttribute('PE') || '',
-      rrn: mEl.getAttribute('RRN') || '',
-      operation: mEl.getAttribute('PC') || '',
-      terminal: mEl.getAttribute('PB') || mEl.getAttribute('PA') || ''
+  // Payment method(s). T="0" marks cash ("Готівка"): SM = amount tendered by the
+  // customer, RM = change handed back, so the amount actually applied toward the
+  // sale is SM-RM (this can differ from the pre-rounding item total by a cent or
+  // two, since UAH cash payments round to the nearest 0.10 per NBU rules — the
+  // <E> element's own SM is the authoritative, already-rounded receipt total).
+  // Non-cash methods (card etc.) carry the usual acquiring/terminal attributes,
+  // and their SM is simply the exact amount charged (no tender/change concept).
+  const payments = mEls.map(m=>{
+    const isCash = m.getAttribute('T')==='0';
+    const tendered = parseInt(m.getAttribute('SM')||'0',10)/100;
+    const change = isCash && m.getAttribute('RM') ? parseInt(m.getAttribute('RM')||'0',10)/100 : null;
+    return {
+      label: m.getAttribute('NM') || '',
+      sum: isCash ? round2(tendered - (change||0)) : tendered,
+      system: m.getAttribute('PSNM') || '',
+      cardMasked: m.getAttribute('PD') || '',
+      authCode: m.getAttribute('PE') || '',
+      rrn: m.getAttribute('RRN') || '',
+      operation: m.getAttribute('PC') || '',
+      terminal: m.getAttribute('PB') || m.getAttribute('PA') || '',
+      provided: isCash && tendered>0 ? tendered : null,
+      change: change>0 ? change : null
     };
-  }
+  });
+  const payment = payments[0] || null;
 
   // tax groups breakdown (from <E><TX .../></E>, or attributes directly on <E> for some models)
   // Rate attributes come in a few flavours depending on the PRRO/generator:
@@ -977,7 +998,7 @@ function parseRqSchema(doc, fileName){
 
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod,
-    fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, taxGroups, verifyUrl,
+    fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, payments, taxGroups, verifyUrl,
     headerLines, paidBy: []
   };
 }
