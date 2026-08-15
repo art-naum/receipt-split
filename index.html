@@ -330,6 +330,7 @@
   .rline .r-sum{font-weight:700;color:var(--ink);white-space:nowrap;}
   .r-tax-group{font:inherit;color:var(--muted);font-weight:500;margin-right:-15px;}
   .rline .r-disc{color:var(--accent-dark);font-size:0.7rem;}
+  .rline .r-round{color:var(--accent-dark);}
   .receipt-total{
     display:flex;justify-content:space-between;
     padding:15px 0 10px;
@@ -886,6 +887,19 @@ function parseRqSchema(doc, fileName){
   const totalSum = eEl && eEl.getAttribute('SM')
     ? parseInt(eEl.getAttribute('SM')||'0',10)/100
     : (mEl ? parseInt(mEl.getAttribute('SM')||'0',10)/100 : items.reduce((a,i)=>a+i.sum,0));
+
+  // <E RND="1"> is the PRRO's own explicit flag that cash-rounding (to the nearest
+  // 0.10 UAH, per NBU rules) was applied to this sale — a more reliable signal than
+  // inferring "this looks like rounding" from the leftover cents alone. When the flag
+  // is set, surface the gap between the (already-rounded) receipt total and the sum
+  // of the actual line items as its own visible entry, so the printed total is fully
+  // reconciled instead of leaving an unexplained one-or-two-kopeck discrepancy.
+  const roundingApplied = eEl && eEl.getAttribute('RND')==='1';
+  const itemsSumRaw = round2(items.reduce((a,i)=>a+i.sum,0));
+  const roundingAdjustment = (roundingApplied && Math.abs(totalSum-itemsSumRaw)>0.001)
+    ? round2(totalSum-itemsSumRaw)
+    : 0;
+
   const payMethod = mEls.length>1
     ? 'Змішана оплата'
     : (mEl ? (mEl.getAttribute('NM') || mEl.getAttribute('PSNM') || '') : '');
@@ -999,7 +1013,7 @@ function parseRqSchema(doc, fileName){
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod,
     fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, payments, taxGroups, verifyUrl,
-    headerLines, paidBy: []
+    headerLines, paidBy: [], roundingAdjustment
   };
 }
 
@@ -1182,7 +1196,7 @@ function parseCheckSchema(doc, fileName){
     fn, tn, tnLabel, zn, docNumber, shiftSerial:'', payment, payments, taxGroups, verifyUrl,
     discountPercent: receiptDiscountPercent,
     ipn, orgName, pointName, pointAddr, cashier, cashDeskNum, headerLines,
-    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz, paidBy: []
+    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz, paidBy: [], roundingAdjustment: 0
   };
 }
 
@@ -1224,7 +1238,13 @@ function renderReceipt(){
       <span class="r-qty">${fmtQty(it.qty)} × ${fmtMoneyPlain(it.price)}${it.discount>0?`<br><span class="r-disc">знижка ${fmtMoneyPlain(it.discount)}</span>`:''}</span>
       <span class="r-sum">${fmtMoneyPlain(it.sum)}${itemTaxGroupLetter(it)?` <span class="r-tax-group">${escapeHtml(itemTaxGroupLetter(it))}</span>`:''}</span>
     </div>
-  `).join('');
+  `).join('') + (r.roundingAdjustment ? `
+    <div class="rline">
+      <span class="r-name r-round">Заокруглення суми</span>
+      <span class="r-qty"></span>
+      <span class="r-sum r-round">${r.roundingAdjustment>0?'+':''}${fmtMoneyPlain(r.roundingAdjustment)}</span>
+    </div>
+  ` : '');
 
   const totalDiscount = round2(r.items.reduce((a,it)=>a+(it.discount||0),0));
   const discountLabel = '<span style="color:var(--muted);">В т.ч.</span> знижка' + ((r.discountPercent!=null && Number(r.discountPercent)>0)
@@ -1872,6 +1892,21 @@ function buyerItemBreakdown(bid){
 }
 
 /* ---------- SETTLEMENT (who paid vs who consumed, across all receipts) ---------- */
+// Splits a receipt's rounding adjustment (cash-rounding cent gap between the
+// authoritative total and the sum of real line items) across whoever paid the
+// receipt, proportional to how much each of them paid. Without this, that
+// cent never lands in anyone's "consumed" total and every settlement is left
+// off-balance by exactly the rounding amount (paid sums to the full total,
+// consumed only sums the real items).
+function applyRoundingToConsumed(consumed, paidByArr, roundingAdjustment){
+  const adj = roundingAdjustment || 0;
+  if(Math.abs(adj) < 0.001 || !Array.isArray(paidByArr) || paidByArr.length===0) return;
+  const weights = paidByArr.map(p=>Math.max(parseFloat(p.amount)||0, 0));
+  const totalWeight = weights.reduce((a,v)=>a+v,0);
+  if(totalWeight<=0) return;
+  const parts = splitProportionally(adj, weights);
+  paidByArr.forEach((p,idx)=>{ if(consumed[p.buyerId]!==undefined) consumed[p.buyerId]+=parts[idx]; });
+}
 function computeGlobalBalances(){
   const consumed = {}, paid = {};
   state.buyers.forEach(b=>{ consumed[b.id]=0; paid[b.id]=0; });
@@ -1884,6 +1919,7 @@ function computeGlobalBalances(){
         Object.entries(alloc).forEach(([bid,amt])=>{ if(consumed[bid]!==undefined) consumed[bid]+=amt; });
       });
       state.receipt.paidBy.forEach(p=>{ if(paid[p.buyerId]!==undefined) paid[p.buyerId]+=(parseFloat(p.amount)||0); });
+      applyRoundingToConsumed(consumed, state.receipt.paidBy, state.receipt.roundingAdjustment);
       includedCount++;
     }else{
       excludedCount++;
@@ -1894,6 +1930,7 @@ function computeGlobalBalances(){
     if(valid){
       h.totals.forEach(t=>{ if(consumed[t.buyerId]!==undefined) consumed[t.buyerId]+=t.sum; });
       h.paidBy.forEach(p=>{ if(paid[p.buyerId]!==undefined) paid[p.buyerId]+=(parseFloat(p.amount)||0); });
+      applyRoundingToConsumed(consumed, h.paidBy, h.roundingAdjustment);
       includedCount++;
     }else{
       excludedCount++;
@@ -2106,6 +2143,7 @@ function saveToHistory(){
     buyerNames,
     totals: state.buyers.map(b=>({buyerId:b.id, name:b.name, sum: round2(totals[b.id]||0)})),
     paidBy: JSON.parse(JSON.stringify(state.receipt.paidBy || [])),
+    roundingAdjustment: round2(state.receipt.roundingAdjustment || 0),
     receiptSnapshot: JSON.parse(JSON.stringify(state.receipt))
   });
   state.receipt = null;
