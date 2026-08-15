@@ -731,8 +731,13 @@ let editingBuyerId = null;
 // (unlike shrink-then-read-scrollWidth) it renders identically across engines,
 // including Firefox, where <input>.scrollWidth does not reliably reflect the
 // true content width once the field has been squeezed narrower than its text.
+// The +1 pads a little breathing room: `size` sizes off an *average* character
+// (roughly the width of "0"), so at a tight fit — especially size=1 for a single
+// freshly-typed letter — a wide glyph (Ш, Щ, Ж, Ю, Ф...) can render right at the
+// field's edge and get clipped in Safari, which leaves noticeably less slack
+// there than other engines.
 function resizeChipInput(el){
-  el.size = Math.max((el.value || '').length, 1);
+  el.size = Math.max((el.value || '').length + 1, 2);
 }
 function startEditBuyer(id){
   editingBuyerId = id;
@@ -773,7 +778,7 @@ function renderBuyers(){
     el.innerHTML = state.buyers.map(b=>{
       if(b.id===editingBuyerId){
         return `<span class="chip chip-editing">
-          <input type="text" class="chip-edit-input" id="buyerEdit_${b.id}" value="${escapeHtml(b.name)}" size="${Math.max(String(b.name).length, 1)}"
+          <input type="text" class="chip-edit-input" id="buyerEdit_${b.id}" value="${escapeHtml(b.name)}" size="${Math.max(String(b.name).length + 1, 2)}"
             onkeydown="if(event.key==='Enter'){ this.blur(); }else if(event.key==='Escape'){ this.value=this.defaultValue; this.blur(); }"
             onblur="saveBuyerName('${b.id}', this.value)" oninput="capitalizeFirst(this); resizeChipInput(this)">
         </span>`;
@@ -1240,7 +1245,7 @@ function renderReceipt(){
     </div>
   `).join('') + (r.roundingAdjustment ? `
     <div class="rline">
-      <span class="r-name r-round">Заокруглення суми</span>
+      <span class="r-name r-round">Заокруглення готівки</span>
       <span class="r-qty"></span>
       <span class="r-sum r-round">${r.roundingAdjustment>0?'+':''}${fmtMoneyPlain(r.roundingAdjustment)}</span>
     </div>
@@ -1860,7 +1865,7 @@ function pluralPozytsiya(n){
 function gcd(a,b){ a=Math.round(Math.abs(a)); b=Math.round(Math.abs(b)); return b===0 ? a : gcd(b, a%b); }
 function buyerItemBreakdown(bid){
   if(!state.receipt) return [];
-  return state.receipt.items
+  const rows = state.receipt.items
     .filter(it=>it.buyerIds.includes(bid))
     .map(it=>{
       const alloc = allocateItem(it);
@@ -1889,23 +1894,35 @@ function buyerItemBreakdown(bid){
       }
       return { name: it.name, amount, shareLabel };
     });
+  const roundingShares = roundingSharesForReceipt(state.receipt);
+  if(roundingShares[bid]){
+    const payerCount = (state.receipt.paidBy||[]).length;
+    rows.push({ name: 'Заокруглення готівки', amount: roundingShares[bid], shareLabel: payerCount<=1 ? 'повністю' : 'пропорційно' });
+  }
+  return rows;
 }
 
 /* ---------- SETTLEMENT (who paid vs who consumed, across all receipts) ---------- */
 // Splits a receipt's rounding adjustment (cash-rounding cent gap between the
 // authoritative total and the sum of real line items) across whoever paid the
-// receipt, proportional to how much each of them paid. Without this, that
-// cent never lands in anyone's "consumed" total and every settlement is left
-// off-balance by exactly the rounding amount (paid sums to the full total,
-// consumed only sums the real items).
-function applyRoundingToConsumed(consumed, paidByArr, roundingAdjustment){
-  const adj = roundingAdjustment || 0;
-  if(Math.abs(adj) < 0.001 || !Array.isArray(paidByArr) || paidByArr.length===0) return;
-  const weights = paidByArr.map(p=>Math.max(parseFloat(p.amount)||0, 0));
+// receipt, proportional to how much each of them paid. Returns {buyerId: share}.
+// Used both for section 4 (this receipt alone) and section 5's cross-receipt
+// aggregate — without it, that cent never lands in anyone's "consumed" total
+// and every total/settlement is left off-balance by exactly the rounding amount.
+function roundingSharesForReceipt(r){
+  const shares = {};
+  const adj = (r && r.roundingAdjustment) || 0;
+  if(Math.abs(adj) < 0.001 || !r || !Array.isArray(r.paidBy) || r.paidBy.length===0) return shares;
+  const weights = r.paidBy.map(p=>Math.max(parseFloat(p.amount)||0, 0));
   const totalWeight = weights.reduce((a,v)=>a+v,0);
-  if(totalWeight<=0) return;
+  if(totalWeight<=0) return shares;
   const parts = splitProportionally(adj, weights);
-  paidByArr.forEach((p,idx)=>{ if(consumed[p.buyerId]!==undefined) consumed[p.buyerId]+=parts[idx]; });
+  r.paidBy.forEach((p,idx)=>{ shares[p.buyerId] = (shares[p.buyerId]||0) + parts[idx]; });
+  return shares;
+}
+function applyRoundingToConsumed(consumed, paidByArr, roundingAdjustment){
+  const shares = roundingSharesForReceipt({ paidBy: paidByArr, roundingAdjustment });
+  Object.entries(shares).forEach(([bid,amt])=>{ if(consumed[bid]!==undefined) consumed[bid]+=amt; });
 }
 function computeGlobalBalances(){
   const consumed = {}, paid = {};
@@ -2049,6 +2066,9 @@ function renderResults(){
       if(Math.abs(diff) >= 0.01) manualMismatch = true;
     }
   });
+
+  const roundingShares = roundingSharesForReceipt(state.receipt);
+  Object.entries(roundingShares).forEach(([bid,amt])=>{ if(totals[bid]!==undefined) totals[bid]+=amt; });
 
   const grandTotal = round2(Object.values(totals).reduce((a,v)=>a+v,0));
   const rows = state.buyers.map(b=>{
