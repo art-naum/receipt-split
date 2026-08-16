@@ -2272,8 +2272,8 @@ function renderResults(){
   const progressComplete = allItemsAssigned;
   const progressLabelText = allItemsAssigned
     ? (totalItemsCount===1
-        ? `Єдину позицію розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`
-        : `Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`)
+        ? `<span style="color:#32d74b;">✓</span> Єдину позицію розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`
+        : `<span style="color:#32d74b;">✓</span> Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`)
     : `Розподілено ${assignedItemsCount} з ${totalItemsCount} позицій, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(state.receipt.totalSum)}`;
   const progressHtml = `
     <div class="progress-block">
