@@ -677,7 +677,7 @@ function fmtMoneyPlain(n){
 function fmtQty(n){
   let s = n.toFixed(3);
   s = s.replace(/0+$/,'').replace(/\.$/,'');
-  return s;
+  return s.replace('.', ',');
 }
 // Splits `total` into items.length parts, proportionally to `weights`.
 // Each part is floored to cents; the leftover (rounding remainder) goes to
