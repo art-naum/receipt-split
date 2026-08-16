@@ -331,6 +331,33 @@
   .r-tax-group{font:inherit;color:var(--muted);font-weight:500;margin-right:-15px;}
   .rline .r-disc{color:var(--accent-dark);font-size:0.7rem;}
   .rline .r-round{color:var(--accent-dark);}
+  .rline .r-del{
+    flex-shrink:0;
+    cursor:pointer;
+    color:var(--muted);
+    font-weight:700;
+    margin-left:10px;
+    align-self:center;
+    opacity:0.7;
+  }
+  .rline .r-del:hover{color:var(--danger);opacity:1;}
+  .rline .r-edit{
+    flex-shrink:0;
+    cursor:pointer;
+    color:var(--muted);
+    font-weight:700;
+    margin-left:10px;
+    align-self:center;
+    opacity:0.7;
+    font-size:1.1rem;
+    line-height:1;
+  }
+  .rline .r-edit:hover{color:var(--accent-dark);opacity:1;}
+  .manual-edit-row{align-items:center;flex-wrap:wrap;}
+  .manual-add-row{
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+    margin-top:16px;
+  }
   .receipt-total{
     display:flex;justify-content:space-between;
     padding:15px 0 10px;
@@ -797,9 +824,101 @@ function updateSaveButtonVisibility(){
 
 /* ---------- FILE HANDLING ---------- */
 function requestReupload(){
-  const ok = confirm('Зараз у роботі вже є завантажений чек. Завантаження нового призведе до втрати поточного прогресу розподілу (сам чек не пропаде, зможеш завантажити його XML ще раз). Продовжити?');
+  const ok = confirm('Зараз у роботі вже є чек. Якщо продовжиш — поточний прогрес розподілу буде втрачено (завантажений XML-файл нікуди не пропаде, зможеш відкрити його ще раз). Продовжити?');
   if(!ok) return;
   state.receipt = null;
+  renderReceipt();
+  renderResults();
+}
+/* ---------- MANUAL RECEIPT (for non-fiscal / товарний чеки with no XML to upload) ---------- */
+function formatManualDateStr(d){
+  const pad = n => String(n).padStart(2,'0');
+  return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function startManualReceipt(){
+  state.receipt = {
+    manual: true,
+    fileName: null,
+    items: [],
+    totalSum: 0,
+    checkNo: '',
+    dateStr: formatManualDateStr(new Date()),
+    payMethod: '',
+    paidBy: [],
+    roundingAdjustment: 0
+  };
+  editingManualItemId = null;
+  renderReceipt();
+  renderResults();
+}
+function recalcManualTotal(r){
+  r.totalSum = round2(r.items.reduce((a,it)=>a+it.sum,0));
+}
+function addManualItem(){
+  const r = state.receipt;
+  if(!r || !r.manual) return;
+  const nameEl = document.getElementById('manualItemName');
+  const qtyEl = document.getElementById('manualItemQty');
+  const priceEl = document.getElementById('manualItemPrice');
+  const name = (nameEl.value||'').trim();
+  const qty = parseFloat(qtyEl.value) || 0;
+  const price = parseFloat(priceEl.value) || 0;
+  if(!name){ nameEl.focus(); return; }
+  if(qty<=0){ qtyEl.focus(); return; }
+  if(price<0){ priceEl.focus(); return; }
+  r.items.push({
+    id: uid('i'), n:'', name, qty, price, sum: round2(qty*price), discount:0, code:'', taxGroup:'',
+    buyerIds: [], mode:'equal', manualType:'amount', manualValues:{}
+  });
+  recalcManualTotal(r);
+  nameEl.value = '';
+  qtyEl.value = '1';
+  priceEl.value = '';
+  renderReceipt();
+  renderResults();
+  const freshNameEl = document.getElementById('manualItemName');
+  if(freshNameEl) freshNameEl.focus();
+}
+function removeManualItem(itemId){
+  const r = state.receipt;
+  if(!r || !r.manual) return;
+  r.items = r.items.filter(it=>it.id!==itemId);
+  if(editingManualItemId===itemId) editingManualItemId = null;
+  recalcManualTotal(r);
+  renderReceipt();
+  renderResults();
+}
+let editingManualItemId = null;
+function startEditManualItem(itemId){
+  editingManualItemId = itemId;
+  renderReceipt();
+  const el = document.getElementById(`editName_${itemId}`);
+  if(el){ el.focus(); el.select(); }
+}
+function cancelEditManualItem(){
+  editingManualItemId = null;
+  renderReceipt();
+}
+function saveManualItemEdit(itemId){
+  const r = state.receipt;
+  if(!r || !r.manual) return;
+  const it = r.items.find(i=>i.id===itemId);
+  if(!it) return;
+  const nameEl = document.getElementById(`editName_${itemId}`);
+  const qtyEl = document.getElementById(`editQty_${itemId}`);
+  const priceEl = document.getElementById(`editPrice_${itemId}`);
+  const name = (nameEl.value||'').trim();
+  const qty = parseFloat(qtyEl.value) || 0;
+  const price = parseFloat(priceEl.value) || 0;
+  if(!name){ nameEl.focus(); return; }
+  if(qty<=0){ qtyEl.focus(); return; }
+  if(price<0){ priceEl.focus(); return; }
+  it.name = name;
+  it.qty = qty;
+  it.price = price;
+  it.sum = round2(qty*price);
+  recalcManualTotal(r);
+  editingManualItemId = null;
   renderReceipt();
   renderResults();
 }
@@ -1217,6 +1336,9 @@ function renderReceipt(){
         <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
           <b>Натисни, щоб обрати XML-файл чеку</b><br>або перетягни його сюди
         </div>
+        <div style="text-align:center;margin-top:14px;">
+          <button type="button" class="link-btn" onclick="startManualReceipt()">Або створити чек вручну</button>
+        </div>
       </div>
     `;
     assignEl.innerHTML = '';
@@ -1224,7 +1346,7 @@ function renderReceipt(){
   }
   const r = state.receipt;
 
-  if(state.buyers.length===0){
+  if(state.buyers.length===0 && !r.manual){
     el.innerHTML = `
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
@@ -1237,7 +1359,27 @@ function renderReceipt(){
     assignEl.innerHTML = '';
     return;
   }
-  const lines = r.items.map(it=>`
+  const lines = r.manual ? (
+    r.items.length===0
+      ? '<div class="empty" style="margin:6px 0;">Ще немає жодної позиції — додай нижче</div>'
+      : r.items.map(it=> it.id===editingManualItemId ? `
+          <div class="rline manual-edit-row">
+            <input type="text" value="${escapeHtml(it.name)}" id="editName_${it.id}" placeholder="Назва" style="flex:1 1 120px;" onkeydown="if(event.key==='Enter'){event.preventDefault();saveManualItemEdit('${it.id}');}else if(event.key==='Escape'){cancelEditManualItem();}">
+            <input type="number" value="${it.qty}" id="editQty_${it.id}" min="0" step="any" placeholder="К-сть" style="width:64px;" onkeydown="if(event.key==='Enter'){event.preventDefault();saveManualItemEdit('${it.id}');}else if(event.key==='Escape'){cancelEditManualItem();}">
+            <input type="number" value="${it.price}" id="editPrice_${it.id}" min="0" step="0.01" placeholder="Ціна" style="width:80px;" onkeydown="if(event.key==='Enter'){event.preventDefault();saveManualItemEdit('${it.id}');}else if(event.key==='Escape'){cancelEditManualItem();}">
+            <span class="r-edit" onclick="saveManualItemEdit('${it.id}')" title="Зберегти" style="color:var(--accent-dark);">✓</span>
+            <span class="r-del" onclick="cancelEditManualItem()" title="Скасувати">✕</span>
+          </div>
+        ` : `
+          <div class="rline">
+            <span class="r-name">${escapeHtml(it.name)}</span>
+            <span class="r-qty">${fmtQty(it.qty)} × ${fmtMoneyPlain(it.price)}</span>
+            <span class="r-sum">${fmtMoneyPlain(it.sum)}</span>
+            <span class="r-edit" onclick="startEditManualItem('${it.id}')" title="Редагувати позицію">…</span>
+            <span class="r-del" onclick="removeManualItem('${it.id}')" title="Видалити позицію">✕</span>
+          </div>
+        `).join('')
+  ) : r.items.map(it=>`
     <div class="rline">
       <span class="r-name">${escapeHtml(it.name)}</span>
       <span class="r-qty">${fmtQty(it.qty)} × ${fmtMoneyPlain(it.price)}${it.discount>0?`<br><span class="r-disc">знижка ${fmtMoneyPlain(it.discount)}</span>`:''}</span>
@@ -1259,17 +1401,25 @@ function renderReceipt(){
   const assignRows = r.items.map(it=>renderAssignRow(it)).join('');
   const detailsBlock = renderReceiptDetails(r);
   const paidByBlock = renderPaidByBlock(r);
+  const manualAddForm = r.manual ? `
+    <div class="manual-add-row">
+      <input type="text" id="manualItemName" placeholder="Назва позиції" style="flex:1 1 160px;" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('manualItemQty').focus();document.getElementById('manualItemQty').select();}">
+      <input type="number" id="manualItemQty" placeholder="К-сть" value="1" min="0" step="any" style="width:74px;" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('manualItemPrice').focus();}">
+      <input type="number" id="manualItemPrice" placeholder="Ціна" min="0" step="0.01" style="width:90px;" onkeydown="if(event.key==='Enter'){event.preventDefault();addManualItem();}">
+      <button type="button" class="btn-primary" onclick="addManualItem()">Додати</button>
+    </div>
+  ` : '';
 
   el.innerHTML = `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
         <h2 style="margin:0;"><span class="num">2</span> Чек ${r.checkNo?('№'+r.checkNo):''}</h2>
-        <button type="button" class="link-btn" onclick="requestReupload()">Завантажити інший чек</button>
+        <button type="button" class="link-btn" onclick="requestReupload()">${r.manual ? 'Почати новий чек' : 'Завантажити інший чек'}</button>
       </div>
       <div class="receipt-outer">
         <div class="receipt-inner">
           <div class="receipt-head">
-            <div class="shop">Фіскальний чек</div>
+            <div class="shop">${r.manual ? 'Створений чек' : 'Фіскальний чек'}</div>
             <div class="meta">${r.dateStr||''}${r.payMethod?(' · '+escapeHtml(r.payMethod)):''}</div>
           </div>
           ${lines}
@@ -1278,6 +1428,7 @@ function renderReceipt(){
         </div>
         <div class="receipt-tear"></div>
       </div>
+      ${manualAddForm}
       ${detailsBlock}
     </div>
   `;
@@ -1339,7 +1490,7 @@ function renderReceiptDetails(r){
   const receiptRows = [];
   if(r.fn) receiptRows.push(['ФН ПРРО', r.fn]);
   if(r.checkNo) receiptRows.push(['№ чека', r.checkNo]);
-  if(r.dateStr) receiptRows.push(['Дата та час', r.dateStr]);
+  if(r.dateStr && !r.manual) receiptRows.push(['Дата та час', r.dateStr]);
   if(r.cashier) receiptRows.push(['Касир', r.cashier]);
   if(r.zn) receiptRows.push(['Заводський номер', r.zn]);
   if(r.cashDeskNum) receiptRows.push(['№ каси', r.cashDeskNum]);
@@ -2151,6 +2302,8 @@ function saveToHistory(){
     const alloc = allocateItem(it);
     Object.entries(alloc).forEach(([bid,amt])=>{ if(totals[bid]!==undefined) totals[bid]+=amt; });
   });
+  const roundingShares = roundingSharesForReceipt(state.receipt);
+  Object.entries(roundingShares).forEach(([bid,amt])=>{ if(totals[bid]!==undefined) totals[bid]+=amt; });
   const buyerNames = {};
   state.buyers.forEach(b=> buyerNames[b.id]=b.name);
   state.history.push({
@@ -2262,13 +2415,26 @@ function renderHistory(){
         </div>
         <div style="font-size:0.78rem;color:var(--ink-soft);line-height:1.5;">${describeAllocation(it, h.buyerNames)}</div>
       </div>
-    `).join('') : '<div class="empty" style="padding:10px;">Деталі позицій не збереглися для цього чека (старий формат файлу)</div>';
+    `).join('') + (()=>{
+      const roundingShares = roundingSharesForReceipt(h);
+      const shareEntries = Object.entries(roundingShares);
+      if(!h.roundingAdjustment || shareEntries.length===0) return '';
+      return `
+        <div class="rline" style="font-family:'Inter',sans-serif;flex-direction:column;align-items:stretch;gap:4px;">
+          <div style="display:flex;justify-content:space-between;gap:8px;">
+            <span class="r-name r-round">Заокруглення готівки</span>
+            <span class="r-sum r-round">${fmtMoney(h.roundingAdjustment)}</span>
+          </div>
+          <div style="font-size:0.78rem;color:var(--ink-soft);line-height:1.5;">${shareEntries.map(([bid,amt])=>`${escapeHtml((h.buyerNames&&h.buyerNames[bid])||'?')}: ${fmtMoney(amt)}`).join(', ')}</div>
+        </div>
+      `;
+    })() : '<div class="empty" style="padding:10px;">Деталі позицій не збереглися для цього чека (старий формат файлу)</div>';
 
     return `
     <div class="history-item" style="flex-direction:column;align-items:stretch;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div>${escapeHtml(h.fileName)}${(h.checkNo && checkNoMatchesFileName(h.checkNo, h.fileName)) ? '' : (h.checkNo?(' · №'+escapeHtml(h.checkNo)):'')}</div>
+          <div>${escapeHtml(h.fileName || 'Створений чек')}${(h.checkNo && checkNoMatchesFileName(h.checkNo, h.fileName)) ? '' : (h.checkNo?(' · №'+escapeHtml(h.checkNo)):'')}</div>
           <div class="hf">${h.dateStr||''} · ${fmtMoney(h.totalSum)} · ${h.totals.filter(t=>t.sum>0.01).map(t=>`${escapeHtml(t.name)}: ${fmtMoney(t.sum)}`).join(', ')}</div>
         </div>
         <div class="row" style="gap:6px;">
