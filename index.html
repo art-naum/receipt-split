@@ -882,7 +882,11 @@ function addManualItem(){
 function removeManualItem(itemId){
   const r = state.receipt;
   if(!r || !r.manual) return;
-  r.items = r.items.filter(it=>it.id!==itemId);
+  const it = r.items.find(i=>i.id===itemId);
+  if(!it) return;
+  const ok = confirm(`Видалити позицію «${it.name}»?`);
+  if(!ok) return;
+  r.items = r.items.filter(i=>i.id!==itemId);
   if(editingManualItemId===itemId) editingManualItemId = null;
   recalcManualTotal(r);
   renderReceipt();
@@ -1337,7 +1341,7 @@ function renderReceipt(){
           <b>Натисни, щоб обрати XML-файл чеку</b><br>або перетягни його сюди
         </div>
         <div style="text-align:center;margin-top:14px;">
-          <button type="button" class="link-btn" onclick="startManualReceipt()">Або створити чек вручну</button>
+          <button type="button" class="link-btn" onclick="startManualReceipt()">або створи чек вручну</button>
         </div>
       </div>
     `;
@@ -1419,7 +1423,7 @@ function renderReceipt(){
       <div class="receipt-outer">
         <div class="receipt-inner">
           <div class="receipt-head">
-            <div class="shop">${r.manual ? 'Створений чек' : 'Фіскальний чек'}</div>
+            <div class="shop">${r.manual ? 'Чек' : 'Фіскальний чек'}</div>
             <div class="meta">${r.dateStr||''}${r.payMethod?(' · '+escapeHtml(r.payMethod)):''}</div>
           </div>
           ${lines}
