@@ -53,40 +53,26 @@
     position:absolute;
     border-radius:50%;
     filter:blur(70px);
-    will-change:transform;
   }
   .bg-aurora .blob-a{
     width:850px;height:680px;left:-12%;top:-14%;
     background:radial-gradient(circle, rgba(58,80,152,0.30), transparent 70%);
-    animation:driftA 46s ease-in-out infinite alternate;
   }
   .bg-aurora .blob-b{
     width:700px;height:600px;right:-10%;top:-10%;
     background:radial-gradient(circle, rgba(132,80,172,0.32), transparent 70%);
-    animation:driftB 52s ease-in-out infinite alternate;
   }
   .bg-aurora .blob-c{
     width:780px;height:640px;right:-8%;top:34%;
     background:radial-gradient(circle, rgba(34,140,148,0.34), transparent 70%);
-    animation:driftC 60s ease-in-out infinite alternate;
   }
   .bg-aurora .blob-d{
     width:880px;height:720px;left:-10%;bottom:-14%;
     background:radial-gradient(circle, rgba(158,78,116,0.30), transparent 70%);
-    animation:driftD 55s ease-in-out infinite alternate;
   }
   .bg-aurora .blob-e{
     width:720px;height:580px;left:34%;top:42%;
     background:radial-gradient(circle, rgba(96,132,90,0.22), transparent 70%);
-    animation:driftE 65s ease-in-out infinite alternate;
-  }
-  @keyframes driftA{0%{transform:translate(0,0) scale(1);}100%{transform:translate(7%,9%) scale(1.14);}}
-  @keyframes driftB{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-8%,7%) scale(1.08);}}
-  @keyframes driftC{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-6%,-10%) scale(1.16);}}
-  @keyframes driftD{0%{transform:translate(0,0) scale(1);}100%{transform:translate(9%,-6%) scale(1.10);}}
-  @keyframes driftE{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-7%,8%) scale(1.06);}}
-  @media (prefers-reduced-motion: reduce){
-    .bg-aurora .blob{animation:none;}
   }
   .wrap{max-width:900px;margin:0 auto;}
   h1{
