@@ -504,6 +504,7 @@
     transition:width .25s ease;
   }
   .progress-bar-fill.complete{background:linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0) 45%), linear-gradient(90deg, #30c751, #1e7e34);}
+  .progress-bar-fill.mismatch{background:linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0) 45%), linear-gradient(90deg, #ff8a80, #b3261e);}
   .progress-bar-pct{
     position:absolute;
     inset:0;
@@ -532,8 +533,9 @@
   .disclosure-arrow{
     display:inline-block;
     margin-right:8px;
-    color:var(--muted);
-    font-size:0.75rem;
+    color:var(--ink-soft);
+    font-size:1.05rem;
+    font-weight:700;
     transition:transform .18s ease;
     transform:rotate(0deg);
   }
@@ -2261,20 +2263,22 @@ function renderResults(){
   }
 
   const allItemsAssigned = totalItemsCount>0 && assignedItemsCount===totalItemsCount;
+  const sumMismatch = allItemsAssigned && Math.abs(grandTotal - state.receipt.totalSum) > 0.01;
   const progressPct = state.receipt.totalSum > 0.004
     ? Math.max(0, Math.min(100, (grandTotal/state.receipt.totalSum)*100))
     : 100;
-  const progressComplete = allItemsAssigned;
+  const progressComplete = allItemsAssigned && !sumMismatch;
+  const checkColor = sumMismatch ? 'var(--danger)' : '#32d74b';
   const progressLabelText = allItemsAssigned
     ? (totalItemsCount===1
-        ? `<span style="color:#32d74b;">✓</span> Єдину позицію розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`
-        : `<span style="color:#32d74b;">✓</span> Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`)
+        ? `<span style="color:${checkColor};">✓</span> Єдину позицію розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`
+        : `<span style="color:${checkColor};">✓</span> Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`)
     : `Розподілено ${assignedItemsCount} з ${totalItemsCount} позицій, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(state.receipt.totalSum)}`;
-  const progressHtml = `
+  const progressHtml = totalItemsCount===0 ? '' : `
     <div class="progress-block">
       <div class="progress-label">${progressLabelText}</div>
       <div class="progress-bar">
-        <div class="progress-bar-fill${progressComplete?' complete':''}" style="width:${progressPct}%;"></div>
+        <div class="progress-bar-fill${progressComplete?' complete':(sumMismatch?' mismatch':'')}" style="width:${progressPct}%;"></div>
         <div class="progress-bar-pct">${Math.round(progressPct)}%</div>
       </div>
     </div>
