@@ -1805,7 +1805,6 @@ function renderAssignRow(it){
       modeUi += `<div class="remainder ${ok?'ok':'bad'}">${ok ? `Разом ${totalShares} ${pluralChastka(totalShares)} — розподілено повністю ✓` : 'Вкажи хоча б одну частку більшу за 0'}</div>`;
     } else if(it.mode==='manual'){
       const unit = it.manualType==='percent' ? '%' : '₴';
-      const alloc = it.manualType==='percent' ? allocateItem(it) : null;
       modeUi += it.buyerIds.map(bid=>{
         const b = buyers.find(x=>x.id===bid);
         let val = it.manualValues[bid] ?? '';
@@ -1815,7 +1814,15 @@ function renderAssignRow(it){
           const num = parseFloat(val);
           if(!isNaN(num)) val = num.toFixed(2);
         }
-        const amtHint = it.manualType==='percent' ? ` <span style="color:var(--muted);">= ${fmtMoney(alloc[bid]||0)}</span>` : '';
+        // Purely informational hint, computed directly from this buyer's own percent
+        // (pct/100 × item sum) — independent of everyone else's values. The actual
+        // distribution used in section 4/5 still goes through allocateItem(), which
+        // floors-and-hands-the-remainder-to-the-last-buyer so the total always sums
+        // exactly to the item's sum; reusing that here would make the last buyer's
+        // hint react to *other people's* fields instead of their own.
+        const amtHint = it.manualType==='percent'
+          ? ` <span style="color:var(--muted);">= ${fmtMoney(it.sum * (parseFloat(val)||0) / 100)}</span>`
+          : '';
         return `<div class="manual-row">
           <span class="label">${escapeHtml(b?b.name:'?')}</span>
           <input type="number" step="${it.mode==='manual'&&it.manualType==='amount'?'0.01':'1'}" value="${val}" id="mv_${it.id}_${bid}" onfocus="setLastFocusedBuyer('${it.id}','${bid}')" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
@@ -1975,12 +1982,17 @@ function allocateItem(it){
   if(it.manualType==='amount'){
     it.buyerIds.forEach(bid=>{ result[bid] = parseFloat(it.manualValues[bid])||0; });
   }else if(it.manualType==='percent'){
-    const pcts = it.buyerIds.map(bid=>parseFloat(it.manualValues[bid])||0);
-    // denominator is fixed at 100 (not sum of entered percents) so that a
-    // percent total that doesn't add up to 100 still surfaces as a mismatch
-    // elsewhere, instead of being silently normalized away here.
-    const amounts = splitProportionally(it.sum, pcts, 100);
-    it.buyerIds.forEach((bid,idx)=>{ result[bid]=amounts[idx]; });
+    // Each buyer's amount is computed directly from *their own* entered percent
+    // (pct/100 × item sum) — the same "take raw entered values as-is" philosophy
+    // as amount mode above. If the entered percentages genuinely sum to 100%,
+    // this naturally sums to it.sum too; if they don't, the mismatch propagates
+    // into grandTotal/the progress bar exactly like an amount-mode mismatch does,
+    // instead of being silently absorbed by whichever buyer happens to be last
+    // in the list (which a fixed-denominator splitProportionally() call would do).
+    it.buyerIds.forEach(bid=>{
+      const pct = parseFloat(it.manualValues[bid]) || 0;
+      result[bid] = round2(it.sum * pct / 100);
+    });
   }else if(it.manualType==='fraction'){
     const shares = it.buyerIds.map(bid=>parseFloat(it.manualValues[bid])||0);
     const amounts = splitProportionally(it.sum, shares);
@@ -2263,22 +2275,31 @@ function renderResults(){
   }
 
   const allItemsAssigned = totalItemsCount>0 && assignedItemsCount===totalItemsCount;
-  const sumMismatch = allItemsAssigned && Math.abs(grandTotal - state.receipt.totalSum) > 0.01;
-  const progressPct = state.receipt.totalSum > 0.004
-    ? Math.max(0, Math.min(100, (grandTotal/state.receipt.totalSum)*100))
+  const totalSumSafe = state.receipt.totalSum;
+  const sumDiff = round2(grandTotal - totalSumSafe);
+  const overshoot = sumDiff > 0.01;   // already allocated more than the whole receipt
+  const undershoot = sumDiff < -0.01; // still less — the normal, expected state while distributing
+  const sumMismatch = allItemsAssigned && (overshoot || undershoot);
+  // Overshooting is always an error state (someone's manual split adds up to more than
+  // the item/receipt total), regardless of whether every item has a buyer yet — so it
+  // turns the bar red even mid-distribution, instead of waiting for 100% to flag it.
+  const isRed = sumMismatch || (!allItemsAssigned && overshoot);
+  const progressPct = totalSumSafe > 0.004
+    ? Math.max(0, Math.min(100, (grandTotal/totalSumSafe)*100))
     : 100;
   const progressComplete = allItemsAssigned && !sumMismatch;
   const checkColor = sumMismatch ? 'var(--danger)' : '#32d74b';
+  const sumSuffix = sumMismatch ? ` з ${fmtMoney(totalSumSafe)}` : '';
   const progressLabelText = allItemsAssigned
     ? (totalItemsCount===1
-        ? `<span style="color:${checkColor};">✓</span> Єдину позицію розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`
-        : `<span style="color:${checkColor};">✓</span> Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>`)
-    : `Розподілено ${assignedItemsCount} з ${totalItemsCount} позицій, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(state.receipt.totalSum)}`;
+        ? `<span style="color:${checkColor};">✓</span> Єдину позицію розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>${sumSuffix}`
+        : `<span style="color:${checkColor};">✓</span> Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>${sumSuffix}`)
+    : `Розподілено ${assignedItemsCount} з ${totalItemsCount} позицій, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(totalSumSafe)}`;
   const progressHtml = totalItemsCount===0 ? '' : `
     <div class="progress-block">
       <div class="progress-label">${progressLabelText}</div>
       <div class="progress-bar">
-        <div class="progress-bar-fill${progressComplete?' complete':(sumMismatch?' mismatch':'')}" style="width:${progressPct}%;"></div>
+        <div class="progress-bar-fill${progressComplete?' complete':(isRed?' mismatch':'')}" style="width:${progressPct}%;"></div>
         <div class="progress-bar-pct">${Math.round(progressPct)}%</div>
       </div>
     </div>
