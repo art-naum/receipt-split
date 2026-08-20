@@ -2289,11 +2289,13 @@ function renderResults(){
     : 100;
   const progressComplete = allItemsAssigned && !sumMismatch;
   const checkColor = sumMismatch ? 'var(--danger)' : '#32d74b';
-  const sumSuffix = sumMismatch ? ` з ${fmtMoney(totalSumSafe)}` : '';
+  const sumText = sumMismatch
+    ? `${fmtMoney(grandTotal)} з <strong>${fmtMoney(totalSumSafe)}</strong>`
+    : `<strong>${fmtMoney(grandTotal)}</strong>`;
   const progressLabelText = allItemsAssigned
     ? (totalItemsCount===1
-        ? `<span style="color:${checkColor};">✓</span> Єдину позицію розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>${sumSuffix}`
-        : `<span style="color:${checkColor};">✓</span> Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму <strong>${fmtMoney(grandTotal)}</strong>${sumSuffix}`)
+        ? `<span style="color:${checkColor};">✓</span> Єдину позицію розподілено, загалом на суму ${sumText}`
+        : `<span style="color:${checkColor};">✓</span> Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму ${sumText}`)
     : `Розподілено ${assignedItemsCount} з ${totalItemsCount} позицій, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(totalSumSafe)}`;
   const progressHtml = totalItemsCount===0 ? '' : `
     <div class="progress-block">
