@@ -699,6 +699,27 @@ function splitProportionally(total, weights, denominator){
   }
   return result;
 }
+// Largest-remainder (Hamilton) apportionment: splits `target` into whole cents
+// proportional to `weights`, guaranteeing the parts always sum to exactly
+// `target` — unlike floor-then-give-the-rest-to-whoever's-last, which "works"
+// but always dumps every leftover cent on one fixed person. Here every cent
+// of unavoidable rounding goes to whoever's raw (un-rounded) share was closest
+// to the next cent up, so e.g. three equal-ish percentages splitting an evenly
+// divisible total actually land on equal cents instead of an arbitrary skew.
+function splitLargestRemainder(target, weights){
+  const n = weights.length;
+  const totalWeight = weights.reduce((a,v)=>a+v,0);
+  if(!(totalWeight>0)) return new Array(n).fill(0);
+  const totalCents = Math.round(target*100);
+  const raw = weights.map(w => totalCents*w/totalWeight);
+  const floors = raw.map(v => Math.floor(v));
+  let assignedCents = floors.reduce((a,v)=>a+v,0);
+  let remainder = totalCents - assignedCents;
+  const order = raw.map((v,idx)=>({idx, frac: v-floors[idx]})).sort((a,b)=>b.frac-a.frac);
+  const cents = floors.slice();
+  for(let k=0; k<remainder; k++){ cents[order[k % n].idx] += 1; }
+  return cents.map(c => c/100);
+}
 function textOf(root, tag){
   if(!root) return '';
   const el = root.querySelector(tag);
@@ -1805,6 +1826,12 @@ function renderAssignRow(it){
       modeUi += `<div class="remainder ${ok?'ok':'bad'}">${ok ? `Разом ${totalShares} ${pluralChastka(totalShares)} — розподілено повністю ✓` : 'Вкажи хоча б одну частку більшу за 0'}</div>`;
     } else if(it.mode==='manual'){
       const unit = it.manualType==='percent' ? '%' : '₴';
+      // Now that allocateItem() uses largest-remainder apportionment for percent mode
+      // (fair to whoever's raw share is closest to the next cent, not just "whoever's
+      // last"), the hint can safely show the real computed allocation again — editing
+      // any one buyer's percent still updates *their* hint correctly, with at most a
+      // ±1-cent nudge from tie-breaking against everyone else's values.
+      const percentAlloc = it.manualType==='percent' ? allocateItem(it) : null;
       modeUi += it.buyerIds.map(bid=>{
         const b = buyers.find(x=>x.id===bid);
         let val = it.manualValues[bid] ?? '';
@@ -1814,14 +1841,8 @@ function renderAssignRow(it){
           const num = parseFloat(val);
           if(!isNaN(num)) val = num.toFixed(2);
         }
-        // Purely informational hint, computed directly from this buyer's own percent
-        // (pct/100 × item sum) — independent of everyone else's values. The actual
-        // distribution used in section 4/5 still goes through allocateItem(), which
-        // floors-and-hands-the-remainder-to-the-last-buyer so the total always sums
-        // exactly to the item's sum; reusing that here would make the last buyer's
-        // hint react to *other people's* fields instead of their own.
         const amtHint = it.manualType==='percent'
-          ? ` <span style="color:var(--muted);">= ${fmtMoney(it.sum * (parseFloat(val)||0) / 100)}</span>`
+          ? ` <span style="color:var(--muted);">= ${fmtMoney(percentAlloc[bid]||0)}</span>`
           : '';
         return `<div class="manual-row">
           <span class="label">${escapeHtml(b?b.name:'?')}</span>
@@ -1982,17 +2003,18 @@ function allocateItem(it){
   if(it.manualType==='amount'){
     it.buyerIds.forEach(bid=>{ result[bid] = parseFloat(it.manualValues[bid])||0; });
   }else if(it.manualType==='percent'){
-    // Each buyer's amount is computed directly from *their own* entered percent
-    // (pct/100 × item sum) — the same "take raw entered values as-is" philosophy
-    // as amount mode above. If the entered percentages genuinely sum to 100%,
-    // this naturally sums to it.sum too; if they don't, the mismatch propagates
-    // into grandTotal/the progress bar exactly like an amount-mode mismatch does,
-    // instead of being silently absorbed by whichever buyer happens to be last
-    // in the list (which a fixed-denominator splitProportionally() call would do).
-    it.buyerIds.forEach(bid=>{
-      const pct = parseFloat(it.manualValues[bid]) || 0;
-      result[bid] = round2(it.sum * pct / 100);
-    });
+    // Convert entered percentages into money via largest-remainder apportionment
+    // (see splitLargestRemainder) rather than rounding each buyer's share in
+    // isolation — independent per-buyer rounding can lose or gain a cent overall
+    // even when the percentages themselves sum to exactly 100%. The target here
+    // is scaled by the *entered* percent total, not hard-coded to it.sum, so a
+    // percent total that doesn't actually add up to 100% still surfaces as a
+    // mismatch elsewhere instead of being silently normalized away.
+    const pcts = it.buyerIds.map(bid=>Math.max(parseFloat(it.manualValues[bid])||0, 0));
+    const totalPct = pcts.reduce((a,v)=>a+v,0);
+    const target = round2(it.sum * totalPct / 100);
+    const amounts = splitLargestRemainder(target, pcts);
+    it.buyerIds.forEach((bid,idx)=>{ result[bid]=amounts[idx]; });
   }else if(it.manualType==='fraction'){
     const shares = it.buyerIds.map(bid=>parseFloat(it.manualValues[bid])||0);
     const amounts = splitProportionally(it.sum, shares);
