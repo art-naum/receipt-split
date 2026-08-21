@@ -2299,8 +2299,12 @@ function renderResults(){
   const allItemsAssigned = totalItemsCount>0 && assignedItemsCount===totalItemsCount;
   const totalSumSafe = state.receipt.totalSum;
   const sumDiff = round2(grandTotal - totalSumSafe);
-  const overshoot = sumDiff > 0.01;   // already allocated more than the whole receipt
-  const undershoot = sumDiff < -0.01; // still less — the normal, expected state while distributing
+  // Half-a-cent tolerance: any real discrepancy is at least a full cent (0.01) once
+  // rounded, so this correctly catches e.g. sumDiff===-0.01 exactly (which a ">0.01" /
+  // "<-0.01" strict-inequality check would miss, since -0.01 is not < -0.01) while still
+  // ignoring floating-point noise far below a cent.
+  const overshoot = sumDiff > 0.005;  // already allocated more than the whole receipt
+  const undershoot = sumDiff < -0.005; // still less — the normal, expected state while distributing
   const sumMismatch = allItemsAssigned && (overshoot || undershoot);
   // Overshooting is always an error state (someone's manual split adds up to more than
   // the item/receipt total), regardless of whether every item has a buyer yet — so it
