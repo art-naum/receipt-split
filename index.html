@@ -1893,13 +1893,39 @@ function toggleItemBuyer(itemId, buyerId){
   if(!it) return;
   if(it.buyerIds.includes(buyerId)){
     it.buyerIds = it.buyerIds.filter(x=>x!==buyerId);
-    delete it.manualValues[buyerId];
   }else{
     it.buyerIds.push(buyerId);
   }
   if(it.buyerIds.length<=1) it.mode='equal';
+  // The set of participants changed — a manual split's numbers (частками / % вручну /
+  // ₴ вручну) were tuned for the OLD set of people, so keeping them around (minus just
+  // the removed buyer) would leave stale, no-longer-meaningful values for everyone else
+  // and a blank field for anyone newly added. Reseed a fresh even split across whoever's
+  // selected now instead of patching around the edges.
+  if(it.mode==='manual'){
+    it.manualValues = {};
+    reseedManualValues(it);
+  }
   renderReceipt();
   renderResults();
+}
+function reseedManualValues(it){
+  if(it.manualType==='amount' || it.manualType==='percent'){
+    const undefinedBids = it.buyerIds.filter(bid=>it.manualValues[bid]===undefined);
+    if(undefinedBids.length>0){
+      const total = it.manualType==='percent' ? 100 : it.sum;
+      const alreadyAssigned = it.buyerIds.reduce((a,bid)=>a + (it.manualValues[bid]!==undefined ? (parseFloat(it.manualValues[bid])||0) : 0), 0);
+      const remaining = total - alreadyAssigned;
+      // floor+remainder-to-last, same recipe as allocateItem(), so percentages/amounts
+      // always sum exactly to 100% / the item total instead of drifting from rounding.
+      const amounts = splitProportionally(remaining, new Array(undefinedBids.length).fill(1));
+      undefinedBids.forEach((bid,idx)=>{ it.manualValues[bid] = amounts[idx]; });
+    }
+  }else if(it.manualType==='fraction'){
+    it.buyerIds.forEach(bid=>{
+      if(it.manualValues[bid]===undefined) it.manualValues[bid] = 1;
+    });
+  }
 }
 function setItemMode(itemId, mode, manualType){
   const it = state.receipt.items.find(i=>i.id===itemId);
@@ -1912,22 +1938,7 @@ function setItemMode(itemId, mode, manualType){
       // switching between amount/percent/fraction: values on different scales, reseed cleanly
       it.manualValues = {};
     }
-    if(it.manualType==='amount' || it.manualType==='percent'){
-      const undefinedBids = it.buyerIds.filter(bid=>it.manualValues[bid]===undefined);
-      if(undefinedBids.length>0){
-        const total = it.manualType==='percent' ? 100 : it.sum;
-        const alreadyAssigned = it.buyerIds.reduce((a,bid)=>a + (it.manualValues[bid]!==undefined ? (parseFloat(it.manualValues[bid])||0) : 0), 0);
-        const remaining = total - alreadyAssigned;
-        // floor+remainder-to-last, same recipe as allocateItem(), so percentages/amounts
-        // always sum exactly to 100% / the item total instead of drifting from rounding.
-        const amounts = splitProportionally(remaining, new Array(undefinedBids.length).fill(1));
-        undefinedBids.forEach((bid,idx)=>{ it.manualValues[bid] = amounts[idx]; });
-      }
-    }else if(it.manualType==='fraction'){
-      it.buyerIds.forEach(bid=>{
-        if(it.manualValues[bid]===undefined) it.manualValues[bid] = 1;
-      });
-    }
+    reseedManualValues(it);
   }
   renderReceipt();
   renderResults();
@@ -2049,6 +2060,10 @@ function pluralPozytsiya(n){
   return 'позицій';
 }
 function gcd(a,b){ a=Math.round(Math.abs(a)); b=Math.round(Math.abs(b)); return b===0 ? a : gcd(b, a%b); }
+function peopleCountLabel(n){
+  const words = {2:'двох', 3:'трьох', 4:'чотирьох', 5:"п'ятьох"};
+  return words[n] ? `на ${words[n]}` : `на ${n}`;
+}
 function buyerItemBreakdown(bid){
   if(!state.receipt) return [];
   const rows = state.receipt.items
@@ -2060,7 +2075,7 @@ function buyerItemBreakdown(bid){
       if(it.buyerIds.length<=1){
         shareLabel = 'повністю';
       }else if(it.mode==='equal'){
-        shareLabel = 'порівну';
+        shareLabel = `порівну (${peopleCountLabel(it.buyerIds.length)})`;
       }else if(it.manualType==='percent'){
         const pct = parseFloat(it.manualValues[bid]) || 0;
         const pctStr = Number.isInteger(pct) ? pct : pct.toFixed(2).replace(/\.?0+$/,'');
