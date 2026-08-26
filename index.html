@@ -559,7 +559,7 @@
   }
   .buyer-detail-row:last-child{border-bottom:none;}
   .bd-name{color:var(--ink);flex:1 1 auto;min-width:0;overflow-wrap:anywhere;word-break:break-word;}
-  .bd-share{color:var(--muted);font-size:0.76rem;white-space:nowrap;flex:0 0 75px;text-align:right;}
+  .bd-share{color:var(--muted);font-size:0.76rem;white-space:normal;overflow-wrap:normal;word-break:keep-all;flex:0 1 auto;text-align:right;}
   .bd-amt{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:600;color:var(--ink);white-space:nowrap;flex:0 0 70px;text-align:right;}
   .result-detail{font-size:0.76rem;color:var(--muted);margin-top:3px;}
   .balance-row{
@@ -2075,7 +2075,11 @@ function buyerItemBreakdown(bid){
       if(it.buyerIds.length<=1){
         shareLabel = 'повністю';
       }else if(it.mode==='equal'){
-        shareLabel = `порівну (${peopleCountLabel(it.buyerIds.length)})`;
+        // "(на двох)" is wrapped as one unbreakable unit (white-space:nowrap),
+        // same idiom as describeAllocation() below. NBSP alone isn't reliable
+        // here across engines, so this is enforced with an explicit span
+        // instead of relying on the Unicode line-breaking algorithm.
+        shareLabel = `порівну <span style="white-space:nowrap;">(${peopleCountLabel(it.buyerIds.length)})</span>`;
       }else if(it.manualType==='percent'){
         const pct = parseFloat(it.manualValues[bid]) || 0;
         const pctStr = Number.isInteger(pct) ? pct : pct.toFixed(2).replace(/\.?0+$/,'');
@@ -2281,7 +2285,7 @@ function renderResults(){
           ${items.map(it=>`
             <div class="buyer-detail-row">
               <span class="bd-name">${escapeHtml(it.name)}</span>
-              <span class="bd-share">${escapeHtml(it.shareLabel)}</span>
+              <span class="bd-share">${it.shareLabel}</span>
               <span class="bd-amt">${fmtMoney(it.amount)}</span>
             </div>
           `).join('')}
