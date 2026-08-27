@@ -27,7 +27,7 @@
     --glass-border:rgba(255,255,255,0.14);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html{background:#07080d;transition:background .25s ease;}
+  html{background:#07080d;transition:background .25s ease;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
   body{
     margin:0;
     min-height:100vh;
@@ -160,6 +160,7 @@
     border-radius:980px;
     padding:10px 18px;
     cursor:pointer;
+    white-space:nowrap;
     transition:transform .1s ease, background .15s ease, opacity .15s ease;
   }
   button:active{transform:scale(0.96);}
@@ -2075,11 +2076,15 @@ function buyerItemBreakdown(bid){
       if(it.buyerIds.length<=1){
         shareLabel = 'повністю';
       }else if(it.mode==='equal'){
-        // "(на двох)" is wrapped as one unbreakable unit (white-space:nowrap),
-        // same idiom as describeAllocation() below. NBSP alone isn't reliable
-        // here across engines, so this is enforced with an explicit span
-        // instead of relying on the Unicode line-breaking algorithm.
-        shareLabel = `порівну <span style="white-space:nowrap;">(${peopleCountLabel(it.buyerIds.length)})</span>`;
+        // "(на N)" only adds information when there are MORE than 2 buyers
+        // in the app overall (state.buyers, not just this item's split).
+        // With exactly 2 total buyers, "порівну" can only ever mean
+        // "between the two of them", so the count would be redundant.
+        // "(на двох)" itself is wrapped as one unbreakable unit
+        // (white-space:nowrap), same idiom as describeAllocation() below.
+        shareLabel = state.buyers.length>2
+          ? `порівну <span style="white-space:nowrap;">(${peopleCountLabel(it.buyerIds.length)})</span>`
+          : 'порівну';
       }else if(it.manualType==='percent'){
         const pct = parseFloat(it.manualValues[bid]) || 0;
         const pctStr = Number.isInteger(pct) ? pct : pct.toFixed(2).replace(/\.?0+$/,'');
