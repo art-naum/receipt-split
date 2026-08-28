@@ -545,6 +545,21 @@
   .result-buyer.clickable:active{background:linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02)), var(--field);}
   .result-buyer .sum{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:700;color:var(--accent-dark);font-size:1.05rem;}
   .result-buyer-wrap{margin-bottom:0;}
+  .subpanel{
+    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)), var(--field);
+    backdrop-filter:blur(24px) saturate(180%);
+    -webkit-backdrop-filter:blur(24px) saturate(180%);
+    border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(255,255,255,0.10) inset;
+    border-radius:16px;
+    padding:16px 16px 14px;
+    margin:0 0 24px;
+  }
+  .subpanel-title{
+    font-size:0.68rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 10px;
+  }
+  .subpanel-row-label{color:var(--muted);font-size:0.78rem;margin-bottom:8px;}
   .buyer-detail{
     margin:6px 2px 0;
     padding:4px 14px 8px;
@@ -1422,6 +1437,10 @@ function renderReceipt(){
     : '');
 
   const assignRows = r.items.map(it=>renderAssignRow(it)).join('');
+  const quickBuyerChips = state.buyers.map(b=>{
+    const allIncluded = r.items.length>0 && r.items.every(it=>it.buyerIds.includes(b.id));
+    return `<span class="chip ${allIncluded?'active':''}" onclick="toggleBuyerEverywhere('${b.id}')">${escapeHtml(b.name)}</span>`;
+  }).join('');
   const detailsBlock = renderReceiptDetails(r);
   const paidByBlock = renderPaidByBlock(r);
   const manualAddForm = r.manual ? `
@@ -1459,10 +1478,19 @@ function renderReceipt(){
   assignEl.innerHTML = `
     <div class="card">
       <h2 style="margin-bottom:0;"><span class="num">3</span> Оплата та розподіл</h2>
-      <div class="section-kicker" style="margin:25px 0;">Хто сплатив чек:</div>
-      ${paidByBlock}
-      <div style="margin:18px 0 0;border-top:1px dashed var(--line);"></div>
-      <div class="section-kicker" style="margin:25px 0 9px;">Чиї це покупки:</div>
+      <div class="section-kicker" style="margin:20px 0 9px;">Хто сплатив чек:</div>
+      <div class="subpanel">
+        ${paidByBlock}
+      </div>
+      <div class="section-kicker" style="margin:0 0 9px;">Чиї це покупки:</div>
+      <div class="subpanel">
+        <div class="subpanel-title">Швидкі дії</div>
+        <button type="button" class="btn-ghost" onclick="assignAllEqually()">Порівну на всіх</button>
+        <div class="row" style="margin-top:10px;">
+          <span class="subpanel-row-label" style="margin:0;">Всюди:</span>
+          ${quickBuyerChips}
+        </div>
+      </div>
       <div class="assign-block">${assignRows}</div>
     </div>
   `;
@@ -1659,7 +1687,7 @@ function reseedPaidByAmounts(r){
     const missing = r.paidBy.filter(p=>p.amount===''||p.amount==null);
     if(missing.length>0){
       const already = r.paidBy.filter(p=>!missing.includes(p)).reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
-      const amounts = splitProportionally(round2(r.totalSum-already), new Array(missing.length).fill(1));
+      const amounts = splitLargestRemainder(round2(r.totalSum-already), new Array(missing.length).fill(1));
       missing.forEach((p,idx)=>{ p.amount = amounts[idx]; });
     }
   }
@@ -1889,24 +1917,63 @@ function renderAssignRow(it){
   `;
 }
 
-function toggleItemBuyer(itemId, buyerId){
-  const it = state.receipt.items.find(i=>i.id===itemId);
-  if(!it) return;
-  if(it.buyerIds.includes(buyerId)){
+// Adds/removes buyerId from a single item's buyerIds, applying the same
+// side effects everywhere it happens: force mode back to 'equal' once at
+// most 1 buyer remains, and reseed manual split values for the new set of
+// participants when the item is in a manual mode. Shared by the per-item
+// chip toggle and the bulk "everywhere" actions below, so they can never
+// drift out of sync with each other.
+function setItemBuyerInclusion(it, buyerId, include){
+  const has = it.buyerIds.includes(buyerId);
+  if(include && !has){
+    it.buyerIds.push(buyerId);
+  }else if(!include && has){
     it.buyerIds = it.buyerIds.filter(x=>x!==buyerId);
   }else{
-    it.buyerIds.push(buyerId);
+    return;
   }
   if(it.buyerIds.length<=1) it.mode='equal';
-  // The set of participants changed — a manual split's numbers (частками / % вручну /
-  // ₴ вручну) were tuned for the OLD set of people, so keeping them around (minus just
-  // the removed buyer) would leave stale, no-longer-meaningful values for everyone else
-  // and a blank field for anyone newly added. Reseed a fresh even split across whoever's
-  // selected now instead of patching around the edges.
   if(it.mode==='manual'){
     it.manualValues = {};
     reseedManualValues(it);
   }
+}
+function toggleItemBuyer(itemId, buyerId){
+  const it = state.receipt.items.find(i=>i.id===itemId);
+  if(!it) return;
+  setItemBuyerInclusion(it, buyerId, !it.buyerIds.includes(buyerId));
+  renderReceipt();
+  renderResults();
+}
+// Bulk action: this buyer is added to EVERY item if they're not already on
+// ALL of them, or removed from EVERY item if they already are. Other
+// buyers already selected per item are left untouched.
+function toggleBuyerEverywhere(buyerId){
+  const r = state.receipt;
+  if(!r) return;
+  const allIncluded = r.items.length>0 && r.items.every(it=>it.buyerIds.includes(buyerId));
+  const include = !allIncluded;
+  r.items.forEach(it=>setItemBuyerInclusion(it, buyerId, include));
+  renderReceipt();
+  renderResults();
+}
+// Bulk action: splits every item on the receipt equally among every buyer.
+// Overwrites whatever split was there before, so it asks first if there's
+// existing per-item work that would be lost.
+function assignAllEqually(){
+  const r = state.receipt;
+  if(!r || state.buyers.length===0) return;
+  const hasExisting = r.items.some(it=>it.buyerIds.length>0);
+  if(hasExisting){
+    const ok = confirm('Це замінить поточний розподіл на "порівну між усіма" для ВСІХ позицій чека. Продовжити?');
+    if(!ok) return;
+  }
+  const allBuyerIds = state.buyers.map(b=>b.id);
+  r.items.forEach(it=>{
+    it.buyerIds = allBuyerIds.slice();
+    it.mode = 'equal';
+    it.manualValues = {};
+  });
   renderReceipt();
   renderResults();
 }
@@ -1917,9 +1984,12 @@ function reseedManualValues(it){
       const total = it.manualType==='percent' ? 100 : it.sum;
       const alreadyAssigned = it.buyerIds.reduce((a,bid)=>a + (it.manualValues[bid]!==undefined ? (parseFloat(it.manualValues[bid])||0) : 0), 0);
       const remaining = total - alreadyAssigned;
-      // floor+remainder-to-last, same recipe as allocateItem(), so percentages/amounts
-      // always sum exactly to 100% / the item total instead of drifting from rounding.
-      const amounts = splitProportionally(remaining, new Array(undefinedBids.length).fill(1));
+      // Largest-remainder apportionment (see splitLargestRemainder): rounds the
+      // total to cents up front instead of flooring each share, so an evenly
+      // divisible amount (e.g. 137.20 between two people) lands on equal cents
+      // instead of losing one to floating-point error (68.6*100 = 6859.999...
+      // in JS, so a naive floor() truncates it to 6859 instead of 6860).
+      const amounts = splitLargestRemainder(remaining, new Array(undefinedBids.length).fill(1));
       undefinedBids.forEach((bid,idx)=>{ it.manualValues[bid] = amounts[idx]; });
     }
   }else if(it.manualType==='fraction'){
@@ -2007,7 +2077,11 @@ function allocateItem(it){
     return result;
   }
   if(it.mode==='equal'){
-    const amounts = splitProportionally(it.sum, new Array(it.buyerIds.length).fill(1));
+    // See splitLargestRemainder's note: floor-based splitting is vulnerable to
+    // cases like 68.6*100 === 6859.999999999999 in JS, which floors to 6859
+    // cents instead of 6860 — silently losing a cent even on perfectly even,
+    // exactly-divisible totals. Rounding to cents up front avoids that.
+    const amounts = splitLargestRemainder(it.sum, new Array(it.buyerIds.length).fill(1));
     it.buyerIds.forEach((bid,idx)=>{ result[bid]=amounts[idx]; });
     return result;
   }
@@ -2029,7 +2103,7 @@ function allocateItem(it){
     it.buyerIds.forEach((bid,idx)=>{ result[bid]=amounts[idx]; });
   }else if(it.manualType==='fraction'){
     const shares = it.buyerIds.map(bid=>parseFloat(it.manualValues[bid])||0);
-    const amounts = splitProportionally(it.sum, shares);
+    const amounts = splitLargestRemainder(it.sum, shares);
     it.buyerIds.forEach((bid,idx)=>{ result[bid]=amounts[idx]; });
   }
   return result;
@@ -2126,7 +2200,7 @@ function roundingSharesForReceipt(r){
   const weights = r.paidBy.map(p=>Math.max(parseFloat(p.amount)||0, 0));
   const totalWeight = weights.reduce((a,v)=>a+v,0);
   if(totalWeight<=0) return shares;
-  const parts = splitProportionally(adj, weights);
+  const parts = splitLargestRemainder(adj, weights);
   r.paidBy.forEach((p,idx)=>{ shares[p.buyerId] = (shares[p.buyerId]||0) + parts[idx]; });
   return shares;
 }
@@ -2317,7 +2391,7 @@ function renderResults(){
     warnings += `<div class="warn-banner">Не розподілено на суму ${fmtMoney(unassigned)} — ${unassignedItemsCount} ${pluralPozytsiya(unassignedItemsCount)} все ще без покупця.</div>`;
   }
   if(manualMismatch){
-    warnings += `<div class="warn-banner">В одній або кількох позиціях ручний розподіл не збігається з сумою позиції — перевір поле "Залишилось".</div>`;
+    warnings += `<div class="warn-banner">В одній або кількох позиціях ручний розподіл не збігається з сумою позиції — перевір поле "Залишилось/Зайві".</div>`;
   }
 
   const allItemsAssigned = totalItemsCount>0 && assignedItemsCount===totalItemsCount;
