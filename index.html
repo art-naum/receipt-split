@@ -444,7 +444,7 @@
   .assign-item-name .sub.r-disc{color:var(--accent-dark);}
   .assign-controls{flex:2 1 340px;min-width:280px;}
   .mode-toggle{
-    display:flex;gap:2px;margin-top:8px;
+    display:flex;gap:2px;margin-top:8px;align-items:center;
     background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)), var(--field);
     backdrop-filter:blur(20px) saturate(180%);
     -webkit-backdrop-filter:blur(20px) saturate(180%);
@@ -452,10 +452,13 @@
     box-shadow:0 1px 0 rgba(255,255,255,0.08) inset;
     border-radius:980px;
     padding:3px;
+    height:34px;
     width:fit-content;
   }
   .mode-toggle button{
-    background:transparent;color:var(--ink-soft);font-size:0.74rem;padding:6px 12px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;
+    height:100%;
+    background:transparent;color:var(--ink-soft);font-size:0.74rem;padding:0 12px;font-weight:600;line-height:1;
   }
   .mode-toggle button.active{background:linear-gradient(180deg, #fff, #ececec);color:#000;box-shadow:0 2px 8px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.7) inset;}
   .manual-row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:0.82rem;}
@@ -561,8 +564,32 @@
   }
   .subpanel-row-label{color:var(--muted);font-size:0.78rem;margin-bottom:8px;}
   .quick-equal-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-  .equal-toggle-label{font-weight:600;font-size:0.74rem;}
-  .chip-compact{padding:9px 16px;font-size:0.74rem;font-weight:600;}
+  .quick-equal-row .mode-toggle{margin-top:0;}
+  .equal-toggle-label{font-weight:600;font-size:0.74rem;line-height:1;height:34px;display:flex;align-items:center;}
+  .icon-chip{
+    display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+    width:34px;height:34px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.02)), var(--field);
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    box-shadow:0 1px 0 rgba(255,255,255,0.14) inset, 0 4px 10px -7px rgba(0,0,0,0.6);
+    font-size:0.78rem;
+    font-weight:600;
+    line-height:1;
+    cursor:pointer;
+    user-select:none;
+    color:var(--ink-soft);
+    transition:all .15s ease;
+  }
+  .icon-chip:hover{border-color:var(--accent);}
+  .icon-chip:active{
+    background:linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0)), var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+    box-shadow:0 1px 0 rgba(255,255,255,0.4) inset, 0 3px 10px -3px rgba(10,132,255,0.7);
+  }
   .buyer-detail{
     margin:6px 2px 0;
     padding:4px 14px 8px;
@@ -1499,12 +1526,12 @@ function renderReceipt(){
       <div class="subpanel">
         <div class="subpanel-title">Швидкі дії</div>
         <div class="quick-equal-row">
-          <span class="equal-toggle-label">Порівну</span>
+          <span class="equal-toggle-label">Порівну:</span>
           <div class="mode-toggle">
             <button type="button" class="${quickAssignMode==='all'?'active':''}" onclick="selectQuickAssignAll()">на всіх</button>
             <button type="button" class="${quickAssignMode==='selective'?'active':''}" onclick="selectQuickAssignSelective()">вибірково</button>
           </div>
-          <span class="chip chip-compact" onclick="resetAllAssignments()">Скинути</span>
+          <span class="icon-chip" onclick="resetAllAssignments()" title="Скинути розподіл" aria-label="Скинути розподіл">✕</span>
         </div>
         ${quickAssignMode==='selective' ? `<div class="row" style="margin-top:12px;">${quickBuyerChips}</div>` : ''}
       </div>
