@@ -560,6 +560,9 @@
     color:var(--muted);margin:0 0 10px;
   }
   .subpanel-row-label{color:var(--muted);font-size:0.78rem;margin-bottom:8px;}
+  .quick-equal-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .equal-toggle-label{font-weight:600;font-size:0.74rem;}
+  .chip-compact{padding:9px 16px;font-size:0.74rem;font-weight:600;}
   .buyer-detail{
     margin:6px 2px 0;
     padding:4px 14px 8px;
@@ -861,6 +864,7 @@ function requestReupload(){
   const ok = confirm('Зараз у роботі вже є чек. Якщо продовжиш — поточний прогрес розподілу буде втрачено (завантажений XML-файл нікуди не пропаде, зможеш відкрити його ще раз). Продовжити?');
   if(!ok) return;
   state.receipt = null;
+  resetQuickAssignMode();
   renderReceipt();
   renderResults();
 }
@@ -881,6 +885,7 @@ function startManualReceipt(){
     paidBy: [],
     roundingAdjustment: 0
   };
+  resetQuickAssignMode();
   editingManualItemId = null;
   renderReceipt();
   renderResults();
@@ -927,6 +932,13 @@ function removeManualItem(itemId){
   renderResults();
 }
 let editingManualItemId = null;
+// Tracks which option is picked in the "Швидкі дії" panel's segmented
+// control: null (nothing chosen yet) | 'all' | 'selective'. Purely a UI
+// choice, not derived from item data, so it stays put across re-renders
+// until the person picks again — and gets reset to null whenever a
+// receipt is freshly loaded/opened/cleared (see resetQuickAssignMode()).
+let quickAssignMode = null;
+function resetQuickAssignMode(){ quickAssignMode = null; }
 function startEditManualItem(itemId){
   editingManualItemId = itemId;
   renderReceipt();
@@ -967,6 +979,7 @@ async function handleFile(file){
     const text = decodeXmlBuffer(buf);
     const parsed = parseReceiptXml(text, file.name);
     state.receipt = parsed;
+    resetQuickAssignMode();
     renderReceipt();
     renderResults();
     updateSaveButtonVisibility();
@@ -1485,11 +1498,15 @@ function renderReceipt(){
       <div class="section-kicker" style="margin:0 0 9px;">Чиї це покупки:</div>
       <div class="subpanel">
         <div class="subpanel-title">Швидкі дії</div>
-        <button type="button" class="btn-ghost" onclick="assignAllEqually()">Порівну на всіх</button>
-        <div class="row" style="margin-top:10px;">
-          <span class="subpanel-row-label" style="margin:0;">Всюди:</span>
-          ${quickBuyerChips}
+        <div class="quick-equal-row">
+          <span class="equal-toggle-label">Порівну</span>
+          <div class="mode-toggle">
+            <button type="button" class="${quickAssignMode==='all'?'active':''}" onclick="selectQuickAssignAll()">на всіх</button>
+            <button type="button" class="${quickAssignMode==='selective'?'active':''}" onclick="selectQuickAssignSelective()">вибірково</button>
+          </div>
+          <span class="chip chip-compact" onclick="resetAllAssignments()">Скинути</span>
         </div>
+        ${quickAssignMode==='selective' ? `<div class="row" style="margin-top:12px;">${quickBuyerChips}</div>` : ''}
       </div>
       <div class="assign-block">${assignRows}</div>
     </div>
@@ -1945,22 +1962,12 @@ function toggleItemBuyer(itemId, buyerId){
   renderReceipt();
   renderResults();
 }
-// Bulk action: this buyer is added to EVERY item if they're not already on
-// ALL of them, or removed from EVERY item if they already are. Other
-// buyers already selected per item are left untouched.
-function toggleBuyerEverywhere(buyerId){
-  const r = state.receipt;
-  if(!r) return;
-  const allIncluded = r.items.length>0 && r.items.every(it=>it.buyerIds.includes(buyerId));
-  const include = !allIncluded;
-  r.items.forEach(it=>setItemBuyerInclusion(it, buyerId, include));
-  renderReceipt();
-  renderResults();
-}
 // Bulk action: splits every item on the receipt equally among every buyer.
 // Overwrites whatever split was there before, so it asks first if there's
-// existing per-item work that would be lost.
-function assignAllEqually(){
+// existing per-item work that would be lost. Leaves quickAssignMode
+// untouched if the person cancels, so the segmented control doesn't
+// light up "на всіх" for a change that never actually happened.
+function selectQuickAssignAll(){
   const r = state.receipt;
   if(!r || state.buyers.length===0) return;
   const hasExisting = r.items.some(it=>it.buyerIds.length>0);
@@ -1974,6 +1981,42 @@ function assignAllEqually(){
     it.mode = 'equal';
     it.manualValues = {};
   });
+  quickAssignMode = 'all';
+  renderReceipt();
+  renderResults();
+}
+// "Вибірково" doesn't touch any item data by itself — it just switches the
+// segmented control over and reveals the per-buyer "toggle everywhere"
+// chips below it for manual picking.
+function selectQuickAssignSelective(){
+  quickAssignMode = 'selective';
+  renderReceipt();
+}
+// Clears buyer assignments on every item and puts the segmented control
+// back to its blank starting state. Only asks for confirmation if there's
+// actually something to lose.
+function resetAllAssignments(){
+  const r = state.receipt;
+  if(!r) return;
+  const hasExisting = r.items.some(it=>it.buyerIds.length>0);
+  if(hasExisting){
+    const ok = confirm('Це очистить розподіл покупців у ВСІХ позиціях чека. Продовжити?');
+    if(!ok) return;
+  }
+  r.items.forEach(it=>{ it.buyerIds=[]; it.mode='equal'; it.manualValues={}; });
+  quickAssignMode = null;
+  renderReceipt();
+  renderResults();
+}
+// Bulk action: this buyer is added to EVERY item if they're not already on
+// ALL of them, or removed from EVERY item if they already are. Other
+// buyers already selected per item are left untouched.
+function toggleBuyerEverywhere(buyerId){
+  const r = state.receipt;
+  if(!r) return;
+  const allIncluded = r.items.length>0 && r.items.every(it=>it.buyerIds.includes(buyerId));
+  const include = !allIncluded;
+  r.items.forEach(it=>setItemBuyerInclusion(it, buyerId, include));
   renderReceipt();
   renderResults();
 }
@@ -2472,6 +2515,7 @@ function saveToHistory(){
     receiptSnapshot: JSON.parse(JSON.stringify(state.receipt))
   });
   state.receipt = null;
+  resetQuickAssignMode();
   document.getElementById('fileInput').value = '';
   renderReceipt();
   renderResults();
@@ -2512,6 +2556,7 @@ function reopenHistoryItem(id){
       paidBy: JSON.parse(JSON.stringify(h.paidBy || []))
     };
   }
+  resetQuickAssignMode();
   state.history = state.history.filter(x=>x.id!==id);
   expandedHistory.delete(id);
   renderReceipt();
