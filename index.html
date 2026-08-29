@@ -565,8 +565,8 @@
   .subpanel-row-label{color:var(--muted);font-size:0.78rem;margin-bottom:8px;}
   .quick-equal-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .quick-equal-row .mode-toggle{margin-top:0;}
-  .equal-toggle-label{font-weight:600;font-size:0.74rem;line-height:1;height:34px;display:flex;align-items:center;}
   .icon-chip{
+    position:relative;
     display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
     width:34px;height:34px;
     border-radius:50%;
@@ -583,6 +583,35 @@
     color:var(--ink-soft);
     transition:all .15s ease;
   }
+  .icon-chip .tooltip{
+    position:absolute;
+    bottom:calc(100% + 9px);
+    left:50%;
+    transform:translateX(-50%);
+    background:#1c1c22;
+    color:#fff;
+    font-size:0.72rem;
+    font-weight:600;
+    line-height:1;
+    padding:6px 10px;
+    border-radius:8px;
+    white-space:nowrap;
+    box-shadow:0 6px 16px rgba(0,0,0,0.4);
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .15s ease .1s, visibility .15s ease .1s;
+    pointer-events:none;
+    z-index:20;
+  }
+  .icon-chip .tooltip::after{
+    content:'';
+    position:absolute;
+    top:100%;left:50%;
+    transform:translateX(-50%);
+    border:5px solid transparent;
+    border-top-color:#1c1c22;
+  }
+  .icon-chip:hover .tooltip{opacity:1;visibility:visible;}
   .icon-chip:hover{border-color:var(--accent);}
   .icon-chip:active{
     background:linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0)), var(--accent);
@@ -1526,12 +1555,11 @@ function renderReceipt(){
       <div class="subpanel">
         <div class="subpanel-title">Швидкі дії</div>
         <div class="quick-equal-row">
-          <span class="equal-toggle-label">Порівну:</span>
           <div class="mode-toggle">
             <button type="button" class="${quickAssignMode==='all'?'active':''}" onclick="selectQuickAssignAll()">на всіх</button>
             <button type="button" class="${quickAssignMode==='selective'?'active':''}" onclick="selectQuickAssignSelective()">вибірково</button>
           </div>
-          <span class="icon-chip" onclick="resetAllAssignments()" title="Скинути розподіл" aria-label="Скинути розподіл">✕</span>
+          <span class="icon-chip" onclick="resetAllAssignments()" aria-label="Скинути">✕<span class="tooltip">Скинути</span></span>
         </div>
         ${quickAssignMode==='selective' ? `<div class="row" style="margin-top:12px;">${quickBuyerChips}</div>` : ''}
       </div>
