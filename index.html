@@ -739,6 +739,15 @@ let state = {
 let nextBuyerId = 1;
 
 function uid(prefix){ return prefix + Math.random().toString(36).slice(2,9); }
+// Manual-selection UIs (item buyer chips, payer chips) push ids in click
+// order, which has nothing to do with the order buyers were added in
+// Section 1. Anywhere a list of buyers gets displayed — manual split rows,
+// payer amount rows, etc. — it should read in Section 1's order instead, so
+// this reorders any id list to match state.buyers, dropping ids that no
+// longer exist among current buyers.
+function orderedBuyerIds(ids){
+  return state.buyers.filter(b=>ids.includes(b.id)).map(b=>b.id);
+}
 
 function round2(n){
   return Math.round((n + Number.EPSILON) * 100) / 100;
@@ -1869,7 +1878,8 @@ function renderPaidByBlock(r){
   let manualRows = '';
   if(r.paidBy.length>1){
     if(r.paidBy.length!==2) r.paidByOverLimit = false;
-    manualRows = r.paidBy.map(p=>{
+    manualRows = orderedBuyerIds(r.paidBy.map(p=>p.buyerId)).map(bid=>{
+      const p = r.paidBy.find(x=>x.buyerId===bid);
       const b = buyers.find(x=>x.id===p.buyerId);
       const active = document.activeElement;
       const fieldId = `pv_${p.buyerId}`;
@@ -1931,7 +1941,7 @@ function renderAssignRow(it){
     if(it.mode==='manual' && it.manualType==='fraction'){
       const alloc = allocateItem(it);
       const totalShares = it.buyerIds.reduce((a,bid)=>a+(parseFloat(it.manualValues[bid])||0),0);
-      modeUi += it.buyerIds.map(bid=>{
+      modeUi += orderedBuyerIds(it.buyerIds).map(bid=>{
         const b = buyers.find(x=>x.id===bid);
         const val = it.manualValues[bid] ?? '';
         const amt = alloc[bid] || 0;
@@ -1951,7 +1961,7 @@ function renderAssignRow(it){
       // any one buyer's percent still updates *their* hint correctly, with at most a
       // ±1-cent nudge from tie-breaking against everyone else's values.
       const percentAlloc = it.manualType==='percent' ? allocateItem(it) : null;
-      modeUi += it.buyerIds.map(bid=>{
+      modeUi += orderedBuyerIds(it.buyerIds).map(bid=>{
         const b = buyers.find(x=>x.id===bid);
         let val = it.manualValues[bid] ?? '';
         const fieldId = `mv_${it.id}_${bid}`;
