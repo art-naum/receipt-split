@@ -213,7 +213,9 @@
   .chip .del:hover{opacity:1;}
   .chip .chip-name{cursor:text;}
   .chip .chip-name:hover{text-decoration:underline dotted;text-underline-offset:2px;}
-  .gender-emoji{position:relative;cursor:pointer;font-size:1rem;line-height:1;display:inline-block;}
+  .gender-emoji{position:relative;cursor:pointer;font-size:1rem;line-height:1;display:inline-block;margin:-2px -3px 0 -3px;}
+  .gender-emoji-icon{display:inline-block;transition:transform .15s ease;}
+  .gender-emoji:hover .gender-emoji-icon{transform:scale(1.2);}
   .chip-editing{cursor:default;padding-top:6px;padding-bottom:6px;}
   .chip-edit-input{
     font:inherit;
@@ -885,7 +887,11 @@ function toggleBuyerGender(id){
   if(!b) return;
   b.gender = b.gender==='f' ? 'm' : 'f';
   renderBuyers();
-  if(state.receipt) renderResults();
+  // Not gated on state.receipt: Section 5 also reflects gender for
+  // history-only settlements (computeGlobalBalances reads state.history
+  // regardless of whether a receipt is currently open for editing), so it
+  // needs refreshing either way.
+  renderResults();
 }
 function removeBuyer(id){
   state.buyers = state.buyers.filter(b=>b.id!==id);
@@ -915,7 +921,7 @@ function renderBuyers(){
             onblur="saveBuyerName('${b.id}', this.value)" oninput="capitalizeFirst(this); resizeChipInput(this)">
         </span>`;
       }
-      return `<span class="chip"><span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${b.id}')">${b.gender==='f'?'👩':'👨'}<span class="tooltip">Змінити стать</span></span><span class="chip-name" onclick="startEditBuyer('${b.id}')">${escapeHtml(b.name)}</span> <span class="del" onclick="event.stopPropagation();removeBuyer('${b.id}')">✕</span></span>`;
+      return `<span class="chip"><span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${b.id}')"><span class="gender-emoji-icon">${b.gender==='f'?'👩':'👨'}</span><span class="tooltip">Змінити стать</span></span><span class="chip-name" onclick="startEditBuyer('${b.id}')">${escapeHtml(b.name)}</span> <span class="del" onclick="event.stopPropagation();removeBuyer('${b.id}')">✕</span></span>`;
     }).join('');
   }
   updateSaveButtonVisibility();
@@ -2390,7 +2396,7 @@ function renderSettlementCard(){
   const genderEmoji = bid => {
     const b = state.buyers.find(x=>x.id===bid);
     const isF = b && b.gender==='f';
-    return `<span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${bid}')">${isF?'👩':'👨'}<span class="tooltip">Змінити стать</span></span>`;
+    return `<span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${bid}')"><span class="gender-emoji-icon">${isF?'👩':'👨'}</span><span class="tooltip">Змінити стать</span></span>`;
   };
 
   const balanceRows = state.buyers.map(b=>{
