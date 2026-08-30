@@ -213,8 +213,7 @@
   .chip .del:hover{opacity:1;}
   .chip .chip-name{cursor:text;}
   .chip .chip-name:hover{text-decoration:underline dotted;text-underline-offset:2px;}
-  .gender-emoji{cursor:pointer;font-size:1rem;line-height:1;transition:transform .15s ease;display:inline-block;}
-  .gender-emoji:hover{transform:scale(1.2);}
+  .gender-emoji{position:relative;cursor:pointer;font-size:1rem;line-height:1;display:inline-block;}
   .chip-editing{cursor:default;padding-top:6px;padding-bottom:6px;}
   .chip-edit-input{
     font:inherit;
@@ -585,7 +584,7 @@
     color:var(--ink-soft);
     transition:all .15s ease;
   }
-  .icon-chip .tooltip{
+  .icon-chip .tooltip, .gender-emoji .tooltip{
     position:absolute;
     bottom:calc(100% + 9px);
     left:50%;
@@ -605,7 +604,7 @@
     pointer-events:none;
     z-index:20;
   }
-  .icon-chip .tooltip::after{
+  .icon-chip .tooltip::after, .gender-emoji .tooltip::after{
     content:'';
     position:absolute;
     top:100%;left:50%;
@@ -613,7 +612,7 @@
     border:5px solid transparent;
     border-top-color:#1c1c22;
   }
-  .icon-chip:hover .tooltip{opacity:1;visibility:visible;}
+  .icon-chip:hover .tooltip, .gender-emoji:hover .tooltip{opacity:1;visibility:visible;}
   .icon-chip:hover{border-color:var(--accent);}
   .icon-chip:active{
     background:linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0)), var(--accent);
@@ -916,7 +915,7 @@ function renderBuyers(){
             onblur="saveBuyerName('${b.id}', this.value)" oninput="capitalizeFirst(this); resizeChipInput(this)">
         </span>`;
       }
-      return `<span class="chip"><span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${b.id}')" title="Змінити стать">${b.gender==='f'?'👩':'👨'}</span><span class="chip-name" onclick="startEditBuyer('${b.id}')">${escapeHtml(b.name)}</span> <span class="del" onclick="event.stopPropagation();removeBuyer('${b.id}')">✕</span></span>`;
+      return `<span class="chip"><span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${b.id}')">${b.gender==='f'?'👩':'👨'}<span class="tooltip">Змінити стать</span></span><span class="chip-name" onclick="startEditBuyer('${b.id}')">${escapeHtml(b.name)}</span> <span class="del" onclick="event.stopPropagation();removeBuyer('${b.id}')">✕</span></span>`;
     }).join('');
   }
   updateSaveButtonVisibility();
@@ -2391,7 +2390,7 @@ function renderSettlementCard(){
   const genderEmoji = bid => {
     const b = state.buyers.find(x=>x.id===bid);
     const isF = b && b.gender==='f';
-    return `<span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${bid}')" title="Змінити стать">${isF?'👩':'👨'}</span>`;
+    return `<span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${bid}')">${isF?'👩':'👨'}<span class="tooltip">Змінити стать</span></span>`;
   };
 
   const balanceRows = state.buyers.map(b=>{
