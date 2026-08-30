@@ -213,6 +213,8 @@
   .chip .del:hover{opacity:1;}
   .chip .chip-name{cursor:text;}
   .chip .chip-name:hover{text-decoration:underline dotted;text-underline-offset:2px;}
+  .gender-emoji{cursor:pointer;font-size:1rem;line-height:1;transition:transform .15s ease;display:inline-block;}
+  .gender-emoji:hover{transform:scale(1.2);}
   .chip-editing{cursor:default;padding-top:6px;padding-bottom:6px;}
   .chip-edit-input{
     font:inherit;
@@ -839,7 +841,7 @@ function addBuyer(){
   const input = document.getElementById('newBuyerName');
   const name = input.value.trim();
   if(!name) return;
-  state.buyers.push({id: uid('b'), name});
+  state.buyers.push({id: uid('b'), name, gender: 'm'});
   input.value='';
   renderBuyers();
   if(state.receipt) renderReceipt();
@@ -875,6 +877,17 @@ function saveBuyerName(id, value){
   renderBuyers();
   if(state.receipt){ renderReceipt(); renderResults(); }
 }
+// Toggles the emoji shown next to a buyer's name in Section 1 only — the
+// underlying gender also drives grammatical agreement in Section 5's wording
+// (сплатив/сплатила, витратив/витратила, він винен/вона винна, etc.), so a
+// results re-render is needed too whenever it changes.
+function toggleBuyerGender(id){
+  const b = state.buyers.find(x=>x.id===id);
+  if(!b) return;
+  b.gender = b.gender==='f' ? 'm' : 'f';
+  renderBuyers();
+  if(state.receipt) renderResults();
+}
 function removeBuyer(id){
   state.buyers = state.buyers.filter(b=>b.id!==id);
   if(state.receipt){
@@ -903,7 +916,7 @@ function renderBuyers(){
             onblur="saveBuyerName('${b.id}', this.value)" oninput="capitalizeFirst(this); resizeChipInput(this)">
         </span>`;
       }
-      return `<span class="chip"><span class="chip-name" onclick="startEditBuyer('${b.id}')">${escapeHtml(b.name)}</span> <span class="del" onclick="event.stopPropagation();removeBuyer('${b.id}')">✕</span></span>`;
+      return `<span class="chip"><span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${b.id}')" title="Змінити стать">${b.gender==='f'?'👩':'👨'}</span><span class="chip-name" onclick="startEditBuyer('${b.id}')">${escapeHtml(b.name)}</span> <span class="del" onclick="event.stopPropagation();removeBuyer('${b.id}')">✕</span></span>`;
     }).join('');
   }
   updateSaveButtonVisibility();
@@ -2372,21 +2385,30 @@ function renderSettlementCard(){
   if(includedCount===0) return '';
 
   const buyerName = bid => { const b=state.buyers.find(x=>x.id===bid); return b?b.name:'?'; };
+  // Same emoji + same toggleBuyerGender() as Section 1's chips, just reused
+  // here next to names — clicking it anywhere updates the one shared
+  // buyer record, so Section 1 and every mention in Section 5 stay in sync.
+  const genderEmoji = bid => {
+    const b = state.buyers.find(x=>x.id===bid);
+    const isF = b && b.gender==='f';
+    return `<span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${bid}')" title="Змінити стать">${isF?'👩':'👨'}</span>`;
+  };
 
   const balanceRows = state.buyers.map(b=>{
+    const isF = b.gender==='f';
     const bal = balances[b.id]||0;
     const cls = bal>0.005 ? 'pos' : (bal<-0.005 ? 'neg' : '');
-    const tag = bal>0.005 ? 'йому винні' : (bal<-0.005 ? 'він винен' : 'у розрахунку');
+    const tag = bal>0.005 ? (isF?'їй винні':'йому винні') : (bal<-0.005 ? (isF?'вона винна':'він винен') : 'у розрахунку');
     const paidAmt = paid[b.id]||0;
     const consumedAmt = consumed[b.id]||0;
-    const paidPart = paidAmt>0.005 ? `сплатив\u00A0<strong>${fmtMoney(paidAmt)}</strong>` : '';
-    const consumedPart = consumedAmt>0.005 ? `витратив\u00A0${fmtMoney(consumedAmt)}` : '';
+    const paidPart = paidAmt>0.005 ? `${isF?'сплатила':'сплатив'}\u00A0<strong>${fmtMoney(paidAmt)}</strong>` : '';
+    const consumedPart = consumedAmt>0.005 ? `${isF?'витратила':'витратив'}\u00A0${fmtMoney(consumedAmt)}` : '';
     const spendParts = [paidPart, consumedPart].filter(Boolean).join(' · ');
     const paidLine = spendParts ? `<span class="balance-paid">${spendParts}</span>` : '';
     return `
       <div class="balance-row">
         <div class="balance-who">
-          <span class="name">${escapeHtml(b.name)}</span>
+          <span class="name">${genderEmoji(b.id)} ${escapeHtml(b.name)}</span>
           ${paidLine}
         </div>
         <div class="balance-amt-wrap">
