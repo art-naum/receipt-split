@@ -36,9 +36,63 @@
     background:#07080d;
     color:var(--ink);
     font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
-    padding:36px 16px 90px;
+    padding:36px 16px 132px;
     -webkit-font-smoothing:antialiased;
   }
+  .quick-nav-wrap{
+    position:fixed;
+    left:0;right:0;bottom:0;
+    display:flex;justify-content:center;
+    padding:0 16px calc(16px + env(safe-area-inset-bottom));
+    pointer-events:none;
+    z-index:50;
+  }
+  .quick-nav{
+    position:relative;
+    display:flex;
+    width:100%;
+    max-width:560px;
+    pointer-events:auto;
+    background:linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02)), rgba(18,19,26,0.82);
+    backdrop-filter:blur(30px) saturate(180%);
+    -webkit-backdrop-filter:blur(30px) saturate(180%);
+    border:1px solid rgba(255,255,255,0.14);
+    border-radius:980px;
+    padding:4px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.08) inset;
+  }
+  .quick-nav-highlight{
+    position:absolute;
+    top:4px;bottom:4px;left:0;
+    width:0;
+    border-radius:980px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.03)), rgba(255,255,255,0.10);
+    border:1px solid rgba(255,255,255,0.14);
+    transition:transform .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1);
+    z-index:0;
+    pointer-events:none;
+  }
+  .quick-nav-item{
+    position:relative;
+    z-index:1;
+    flex:1 1 0;
+    min-width:0;
+    background:transparent;
+    border:none;
+    color:rgba(255,255,255,0.55);
+    font-family:inherit;
+    font-size:0.6rem;
+    font-weight:600;
+    letter-spacing:0;
+    padding:9px 1px;
+    border-radius:980px;
+    cursor:pointer;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    transition:color .2s ease;
+  }
+  .quick-nav-item.active{color:#fff;}
   .bg-aurora{
     position:fixed;
     inset:0;
@@ -228,6 +282,7 @@
     padding:0;
   }
   .buyer-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+  .buyer-list .empty{width:100%;}
   .empty{
     color:var(--muted);
     font-size:0.9rem;
@@ -705,7 +760,7 @@
   <div class="subtitle">Завантаж фіскальний чек (XML), познач, чиї це покупки — і одразу побачиш, скільки має віддати кожен.</div>
 
   <!-- BUYERS -->
-  <div class="card">
+  <div class="card" id="section1">
     <h2><span class="num">1</span> Покупці</h2>
     <div class="row">
       <input type="text" id="newBuyerName" placeholder="Ім'я покупця" style="min-width:200px;" onkeydown="if(event.key==='Enter'){ addBuyer(); }" oninput="capitalizeFirst(this)">
@@ -725,7 +780,7 @@
   <div id="resultsSection"></div>
 
   <!-- HISTORY -->
-  <div class="card">
+  <div class="card" id="section6">
     <h2><span class="num">6</span> Історія чеків</h2>
     <div id="historyList"><div class="empty">Ще немає збережених чеків</div></div>
     <div class="footnote">Дані зберігаються лише в пам'яті вкладки. Щоб не втратити їх — тисни «Зберегти файл» (JSON) і завантаж його наступного разу — всі дані, включно з розподілом по позиціях, підтягнуться назад, і можна буде продовжити редагування.</div>
@@ -735,6 +790,18 @@
       <input type="file" id="importInput" accept=".json" style="display:none" onchange="importState(this.files[0])">
     </div>
   </div>
+</div>
+
+<div class="quick-nav-wrap" aria-hidden="false">
+  <nav class="quick-nav" id="quickNav">
+    <div class="quick-nav-highlight" id="quickNavHighlight"></div>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section1')">Покупці</button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('receiptSection')">Чек</button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('assignSection')">Оплата</button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section4')">Результат</button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section5')">Залік</button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section6')">Історія</button>
+  </nav>
 </div>
 
 <script>
@@ -1481,12 +1548,12 @@ function renderReceipt(){
   if(!state.receipt){
     el.innerHTML = `
       <div class="card">
-        <h2><span class="num">2</span> Чек</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <h2 style="margin:0;"><span class="num">2</span> Чек</h2>
+          <button type="button" class="link-btn" onclick="startManualReceipt()">Створити чек вручну</button>
+        </div>
         <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
           <b>Натисни, щоб обрати XML-файл чеку</b><br>або перетягни його сюди
-        </div>
-        <div style="text-align:center;margin-top:14px;">
-          <button type="button" class="link-btn" onclick="startManualReceipt()">або створи чек вручну</button>
         </div>
       </div>
     `;
@@ -2419,14 +2486,6 @@ function renderSettlementCard(){
   if(includedCount===0) return '';
 
   const buyerName = bid => { const b=state.buyers.find(x=>x.id===bid); return b?b.name:'?'; };
-  // Same emoji + same toggleBuyerGender() as Section 1's chips, just reused
-  // here next to names — clicking it anywhere updates the one shared
-  // buyer record, so Section 1 and every mention in Section 5 stay in sync.
-  const genderEmoji = bid => {
-    const b = state.buyers.find(x=>x.id===bid);
-    const isF = b && b.gender==='f';
-    return `<span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${bid}')"><span class="gender-emoji-icon">${isF?'👩':'👨'}</span><span class="tooltip">Змінити стать</span></span>`;
-  };
 
   const balanceRows = state.buyers.map(b=>{
     const isF = b.gender==='f';
@@ -2442,7 +2501,7 @@ function renderSettlementCard(){
     return `
       <div class="balance-row">
         <div class="balance-who">
-          <span class="name">${genderEmoji(b.id)} ${escapeHtml(b.name)}</span>
+          <span class="name">${escapeHtml(b.name)}</span>
           ${paidLine}
         </div>
         <div class="balance-amt-wrap">
@@ -2472,7 +2531,7 @@ function renderSettlementCard(){
     : '';
 
   return `
-    <div class="card">
+    <div class="card" id="section5">
       <h2><span class="num">5</span> Взаєморозрахунок${subtitle}</h2>
       <div class="result-grid">${balanceRows}</div>
       <div style="font-weight:700;font-size:0.85rem;margin:16px 0 8px;padding-left:16px;color:var(--ink-soft);">Хто кому переказує</div>
@@ -2586,7 +2645,7 @@ function renderResults(){
   `;
 
   el.innerHTML = `
-    <div class="card">
+    <div class="card" id="section4">
       <h2><span class="num">4</span> Підсумок по покупцях</h2>
       ${warnings}
       ${progressHtml}
@@ -2825,6 +2884,51 @@ renderBuyers();
 renderHistory();
 renderResults();
 renderReceipt();
+
+/* ---------- QUICK NAV (fixed bottom section-jump bar) ---------- */
+const QUICK_NAV_IDS = ['section1','receiptSection','assignSection','section4','section5','section6'];
+function scrollToQuickNavSection(id){
+  const el = document.getElementById(id);
+  if(!el) return; // section 4/5 may not exist yet (no receipt / no valid payer) — no-op rather than error
+  el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function updateQuickNav(){
+  const nav = document.getElementById('quickNav');
+  const highlight = document.getElementById('quickNavHighlight');
+  if(!nav || !highlight) return;
+  const items = Array.from(nav.querySelectorAll('.quick-nav-item'));
+  const threshold = 140; // px from top of viewport — a section becomes "current" once it crosses this line
+  let activeIdx = -1;
+  QUICK_NAV_IDS.forEach((id,i)=>{
+    const el = document.getElementById(id);
+    if(!el) return; // skip sections not currently in the DOM (e.g. section4/5 before a receipt exists)
+    if(el.getBoundingClientRect().top <= threshold) activeIdx = i;
+  });
+  // At the very bottom of the page there may be no more room left to scroll,
+  // so a short last section (e.g. an empty/short history list) can sit well
+  // below the threshold line forever and never "win" it on its own. Force
+  // the last existing section active once there's nowhere further to scroll.
+  const atBottom = window.scrollY + window.innerHeight >= document.body.scrollHeight - 2;
+  if(atBottom){
+    for(let i=QUICK_NAV_IDS.length-1;i>=0;i--){
+      if(document.getElementById(QUICK_NAV_IDS[i])){ activeIdx = i; break; }
+    }
+  }
+  if(activeIdx===-1) activeIdx = 0; // above the first section (top of page) — default to highlighting the first item
+  items.forEach((btn,i)=> btn.classList.toggle('active', i===activeIdx));
+  const activeBtn = items[activeIdx];
+  if(activeBtn){
+    highlight.style.width = activeBtn.offsetWidth + 'px';
+    highlight.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
+  }
+}
+let quickNavRaf = null;
+window.addEventListener('scroll', ()=>{
+  if(quickNavRaf) return;
+  quickNavRaf = requestAnimationFrame(()=>{ updateQuickNav(); quickNavRaf = null; });
+}, {passive:true});
+window.addEventListener('resize', updateQuickNav);
+updateQuickNav();
 </script>
 </body>
 </html>
