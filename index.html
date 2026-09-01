@@ -47,13 +47,22 @@
     pointer-events:none;
     z-index:50;
   }
+  .quick-nav-wrap .quick-nav{
+    transition:opacity .2s ease, transform .2s ease, visibility .2s ease;
+  }
+  .quick-nav-wrap.hidden .quick-nav{
+    opacity:0;
+    transform:translateY(6px);
+    visibility:hidden;
+    pointer-events:none;
+  }
   .quick-nav{
     position:relative;
     display:flex;
     width:100%;
     max-width:560px;
     pointer-events:auto;
-    background:linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02)), rgba(18,19,26,0.82);
+    background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)), rgba(18,19,26,0.60);
     backdrop-filter:blur(30px) saturate(180%);
     -webkit-backdrop-filter:blur(30px) saturate(180%);
     border:1px solid rgba(255,255,255,0.14);
@@ -84,7 +93,7 @@
     font-size:0.6rem;
     font-weight:600;
     letter-spacing:0;
-    padding:9px 1px;
+    padding:13px 1px;
     border-radius:980px;
     cursor:pointer;
     white-space:nowrap;
@@ -792,15 +801,13 @@
   </div>
 </div>
 
-<div class="quick-nav-wrap" aria-hidden="false">
+<div class="quick-nav-wrap hidden" id="quickNavWrap" aria-hidden="true">
   <nav class="quick-nav" id="quickNav">
     <div class="quick-nav-highlight" id="quickNavHighlight"></div>
     <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section1')">Покупці</button>
     <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('receiptSection')">Чек</button>
-    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('assignSection')">Оплата</button>
-    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section4')">Результат</button>
-    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section5')">Залік</button>
-    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section6')">Історія</button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('assignSection')">Розподіл</button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section4')">Підсумки</button>
   </nav>
 </div>
 
@@ -2886,12 +2893,32 @@ renderResults();
 renderReceipt();
 
 /* ---------- QUICK NAV (fixed bottom section-jump bar) ---------- */
-const QUICK_NAV_IDS = ['section1','receiptSection','assignSection','section4','section5','section6'];
+const QUICK_NAV_IDS = ['section1','receiptSection','assignSection','section4'];
 function scrollToQuickNavSection(id){
   const el = document.getElementById(id);
   if(!el) return; // section 4/5 may not exist yet (no receipt / no valid payer) — no-op rather than error
   el.scrollIntoView({behavior:'smooth', block:'start'});
 }
+// The nav is only useful once every section has something to jump to.
+// Section 3 (#assignSection) is emptied out (not removed) when there's no
+// active receipt, and Section 4/5 (#section4/#section5) don't get rendered
+// at all until there's a receipt with a valid payer — so "all six visible"
+// means #assignSection has content AND both those ids exist.
+function updateQuickNavVisibility(){
+  const wrap = document.getElementById('quickNavWrap');
+  if(!wrap) return;
+  const assignSection = document.getElementById('assignSection');
+  const allVisible = !!(assignSection && assignSection.children.length>0
+    && document.getElementById('section4')
+    && document.getElementById('section5'));
+  wrap.classList.toggle('hidden', !allVisible);
+  if(allVisible) updateQuickNav();
+}
+new MutationObserver(updateQuickNavVisibility)
+  .observe(document.getElementById('assignSection'), {childList:true});
+new MutationObserver(updateQuickNavVisibility)
+  .observe(document.getElementById('resultsSection'), {childList:true, subtree:true});
+updateQuickNavVisibility();
 function updateQuickNav(){
   const nav = document.getElementById('quickNav');
   const highlight = document.getElementById('quickNavHighlight');
