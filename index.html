@@ -48,13 +48,16 @@
     z-index:50;
   }
   .quick-nav-wrap .quick-nav{
-    transition:opacity .2s ease, transform .2s ease, visibility .2s ease;
+    transition:opacity .2s ease, transform .28s cubic-bezier(.4,0,.2,1), visibility .2s ease;
   }
   .quick-nav-wrap.hidden .quick-nav{
     opacity:0;
     transform:translateY(6px);
     visibility:hidden;
     pointer-events:none;
+  }
+  .quick-nav-wrap:not(.hidden) .quick-nav.compact{
+    transform:scale(0.86);
   }
   .quick-nav{
     position:relative;
@@ -86,6 +89,7 @@
     z-index:1;
     flex:1 1 0;
     min-width:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
     background:transparent;
     border:none;
     color:rgba(255,255,255,0.55);
@@ -93,7 +97,7 @@
     font-size:0.6rem;
     font-weight:600;
     letter-spacing:0;
-    padding:13px 1px;
+    padding:10px 1px;
     border-radius:980px;
     cursor:pointer;
     white-space:nowrap;
@@ -102,6 +106,10 @@
     transition:color .2s ease;
   }
   .quick-nav-item.active{color:#fff;}
+  .quick-nav-icon{width:20px;height:20px;flex-shrink:0;}
+  .quick-nav-icon path, .quick-nav-icon circle, .quick-nav-icon rect{
+    fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+  }
   .bg-aurora{
     position:fixed;
     inset:0;
@@ -804,10 +812,22 @@
 <div class="quick-nav-wrap hidden" id="quickNavWrap" aria-hidden="true">
   <nav class="quick-nav" id="quickNav">
     <div class="quick-nav-highlight" id="quickNavHighlight"></div>
-    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section1')">Покупці</button>
-    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('receiptSection')">Чек</button>
-    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('assignSection')">Розподіл</button>
-    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section4')">Підсумки</button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section1')">
+      <svg class="quick-nav-icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.6 2.5-6.2 5.5-6.2s5.5 2.6 5.5 6.2"/><circle cx="17.5" cy="8.5" r="2.4"/><path d="M14.8 13.6c1-.7 2-1 2.7-1 2.6 0 4.5 2.2 4.5 5.4"/></svg>
+      <span>Покупці</span>
+    </button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('receiptSection')">
+      <svg class="quick-nav-icon" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/></svg>
+      <span>Чек</span>
+    </button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('assignSection')">
+      <svg class="quick-nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 12V3.5M12 12l7.2 4.3"/></svg>
+      <span>Розподіл</span>
+    </button>
+    <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section4')">
+      <svg class="quick-nav-icon" viewBox="0 0 24 24"><path d="M5 20V12M12 20V6M19 20v-6.5"/></svg>
+      <span>Підсумки</span>
+    </button>
   </nav>
 </div>
 
@@ -2968,10 +2988,28 @@ function updateQuickNav(){
   if(activeIdx===-1) activeIdx = 0; // above the first section (top of page) — default to highlighting the first item
   setQuickNavActive(activeIdx);
 }
+// iOS-style compact-on-scroll-down: the whole pill shrinks slightly while
+// scrolling toward later content, and returns to full size when scrolling
+// back up — starts at full size on first render, purely direction-driven
+// from then on (with a small threshold so tiny jitters don't toggle it).
+let quickNavLastScrollY = window.scrollY;
+function updateQuickNavCompactness(){
+  const nav = document.getElementById('quickNav');
+  if(!nav) return;
+  const y = window.scrollY;
+  if(y <= 0){
+    nav.classList.remove('compact'); // always full size once back at the very top
+  }else if(y > quickNavLastScrollY + 2){
+    nav.classList.add('compact'); // scrolling down
+  }else if(y < quickNavLastScrollY - 2){
+    nav.classList.remove('compact'); // scrolling up
+  }
+  quickNavLastScrollY = y;
+}
 let quickNavRaf = null;
 window.addEventListener('scroll', ()=>{
   if(quickNavRaf) return;
-  quickNavRaf = requestAnimationFrame(()=>{ updateQuickNav(); quickNavRaf = null; });
+  quickNavRaf = requestAnimationFrame(()=>{ updateQuickNav(); updateQuickNavCompactness(); quickNavRaf = null; });
 }, {passive:true});
 window.addEventListener('scrollend', ()=>{
   quickNavSuppressed = false;
