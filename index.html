@@ -425,7 +425,7 @@
   }
   details.receipt-details summary{
     cursor:pointer;color:var(--accent-dark);font-weight:600;
-    display:flex;align-items:center;
+    display:block;align-items:center;
     list-style:none;
   }
   details.receipt-details summary::-webkit-details-marker{display:none;}
@@ -463,7 +463,7 @@
     content:'';
     width:16px;height:2px;
     border-radius:2px;
-    background:linear-gradient(90deg, var(--accent), rgba(10,132,255,0.3));
+    background:linear-gradient(90deg, rgba(10,132,255,0.3), var(--accent));
     flex-shrink:0;
   }
   .receipt-qr{
@@ -608,7 +608,6 @@
   .result-buyer .name{font-weight:600;font-size:1.0rem;}
   .disclosure-arrow{
     display:inline-block;
-    color:var(--ink-soft);
     transition:transform .18s ease;
     transform:rotate(0deg);
     flex-shrink:0;
@@ -616,7 +615,7 @@
   .disclosure-arrow path{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .disclosure-arrow.open{transform:rotate(90deg);}
   .result-buyer .disclosure-arrow{width:7px;height:12px;margin-right:9px;vertical-align:-1px;}
-  .subpanel-title .disclosure-arrow{width:6px;height:10px;margin-left:7px;vertical-align:-1px;}
+  .subpanel-title .disclosure-arrow{width:6px;height:10px;margin-left:10px;vertical-align:-1px;}
   .result-buyer.clickable{cursor:pointer;transition:background .15s ease;}
   .result-buyer.clickable:active{background:linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02)), var(--field);}
   .result-buyer .sum{font-family:ui-monospace, 'SF Mono', Menlo, monospace;font-weight:700;color:var(--accent-dark);font-size:1.05rem;}
@@ -700,6 +699,7 @@
     background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0));
     border-radius:12px;
   }
+  .quick-actions-detail{margin-left:0;padding-top:10px;}
   .buyer-detail-row{
     display:flex;justify-content:space-between;gap:10px;
     padding:7px 0;
@@ -1668,8 +1668,8 @@ function renderReceipt(){
         ${paidByBlock}
       </div>
       <div class="section-kicker" style="margin:0 0 9px;">Чиї це покупки:</div>
-      <div class="subpanel" style="padding-top:9px;${quickActionsExpanded?'':'padding-bottom:8px;'}">
-        <div class="subpanel-title clickable" onclick="toggleQuickActionsPanel()" style="${quickActionsExpanded?'margin-bottom:10px;':''}justify-content:space-between;">
+      <div class="buyer-detail quick-actions-detail">
+        <div class="subpanel-title clickable" onclick="toggleQuickActionsPanel()" style="${quickActionsExpanded?'margin-bottom:10px;border-bottom:1px solid;border-image:linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.01),rgba(255,255,255,0)) 1;padding-bottom:8px;':''}">
           Швидкі дії<svg class="disclosure-arrow${quickActionsExpanded?' open':''}" viewBox="0 0 8 14"><path d="M1 1L7 7L1 13"/></svg>
         </div>
         ${quickActionsExpanded ? `
@@ -2894,9 +2894,33 @@ renderReceipt();
 
 /* ---------- QUICK NAV (fixed bottom section-jump bar) ---------- */
 const QUICK_NAV_IDS = ['section1','receiptSection','assignSection','section4'];
+function setQuickNavActive(idx){
+  const nav = document.getElementById('quickNav');
+  const highlight = document.getElementById('quickNavHighlight');
+  if(!nav || !highlight) return;
+  const items = Array.from(nav.querySelectorAll('.quick-nav-item'));
+  items.forEach((btn,i)=> btn.classList.toggle('active', i===idx));
+  const activeBtn = items[idx];
+  if(activeBtn){
+    highlight.style.width = activeBtn.offsetWidth + 'px';
+    highlight.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
+  }
+}
+let quickNavSuppressed = false;
+let quickNavSuppressTimer = null;
 function scrollToQuickNavSection(id){
   const el = document.getElementById(id);
   if(!el) return; // section 4/5 may not exist yet (no receipt / no valid payer) — no-op rather than error
+  // Move the highlight to the target right away instead of waiting for
+  // scroll position to drive it — otherwise it visibly slides through
+  // every section in between as the smooth-scroll passes them. Scroll-driven
+  // recalculation is paused until the scroll animation actually settles, so
+  // it can't fight this and drag the highlight back to an intermediate spot.
+  const idx = QUICK_NAV_IDS.indexOf(id);
+  if(idx!==-1) setQuickNavActive(idx);
+  quickNavSuppressed = true;
+  clearTimeout(quickNavSuppressTimer);
+  quickNavSuppressTimer = setTimeout(()=>{ quickNavSuppressed = false; }, 900);
   el.scrollIntoView({behavior:'smooth', block:'start'});
 }
 // The nav is only useful once every section has something to jump to.
@@ -2920,10 +2944,10 @@ new MutationObserver(updateQuickNavVisibility)
   .observe(document.getElementById('resultsSection'), {childList:true, subtree:true});
 updateQuickNavVisibility();
 function updateQuickNav(){
+  if(quickNavSuppressed) return; // a click just triggered navigation — let it settle instead of racing it
   const nav = document.getElementById('quickNav');
   const highlight = document.getElementById('quickNavHighlight');
   if(!nav || !highlight) return;
-  const items = Array.from(nav.querySelectorAll('.quick-nav-item'));
   const threshold = 140; // px from top of viewport — a section becomes "current" once it crosses this line
   let activeIdx = -1;
   QUICK_NAV_IDS.forEach((id,i)=>{
@@ -2942,18 +2966,18 @@ function updateQuickNav(){
     }
   }
   if(activeIdx===-1) activeIdx = 0; // above the first section (top of page) — default to highlighting the first item
-  items.forEach((btn,i)=> btn.classList.toggle('active', i===activeIdx));
-  const activeBtn = items[activeIdx];
-  if(activeBtn){
-    highlight.style.width = activeBtn.offsetWidth + 'px';
-    highlight.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
-  }
+  setQuickNavActive(activeIdx);
 }
 let quickNavRaf = null;
 window.addEventListener('scroll', ()=>{
   if(quickNavRaf) return;
   quickNavRaf = requestAnimationFrame(()=>{ updateQuickNav(); quickNavRaf = null; });
 }, {passive:true});
+window.addEventListener('scrollend', ()=>{
+  quickNavSuppressed = false;
+  clearTimeout(quickNavSuppressTimer);
+  updateQuickNav();
+});
 window.addEventListener('resize', updateQuickNav);
 updateQuickNav();
 </script>
