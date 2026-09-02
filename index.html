@@ -437,8 +437,10 @@
     list-style:none;
   }
   details.receipt-details summary::-webkit-details-marker{display:none;}
-  details.receipt-details summary .disclosure-arrow{width:6px;height:10px;margin-left:7px;vertical-align:-1px;color:var(--accent-dark);}
+  details.receipt-details summary .disclosure-arrow{width:6px;height:10px;margin-left:7px;vertical-align:-1px;}
   details.receipt-details[open] summary .disclosure-arrow{transform:rotate(90deg);}
+  summary{list-style:none;}
+  summary::-webkit-details-marker{display:none;}
   .detail-grid{margin-top:10px;}
   .detail-row{
     display:flex;justify-content:space-between;gap:12px;
@@ -619,10 +621,12 @@
     transition:transform .18s ease;
     transform:rotate(0deg);
     flex-shrink:0;
+    color:var(--muted);
   }
   .disclosure-arrow path{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .disclosure-arrow.open{transform:rotate(90deg);}
   .result-buyer .disclosure-arrow{width:7px;height:12px;margin-right:9px;vertical-align:-1px;}
+  .result-buyer-wrap[open]>summary .disclosure-arrow{transform:rotate(90deg);}
   .subpanel-title .disclosure-arrow{width:6px;height:10px;margin-left:10px;vertical-align:-1px;}
   .result-buyer.clickable{cursor:pointer;transition:background .15s ease;}
   .result-buyer.clickable:active{background:linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02)), var(--field);}
@@ -643,6 +647,20 @@
     color:var(--muted);margin:0 0 10px;
   }
   .subpanel-title.clickable{cursor:pointer;display:flex;align-items:center;padding:3px 0;margin:-3px 0 0;user-select:none;}
+  .quick-actions-detail[open]>summary{margin-bottom:10px;border-bottom:1px solid;border-image:linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.01),rgba(255,255,255,0)) 1;padding-bottom:8px;}
+  .quick-actions-detail[open]>summary .disclosure-arrow{transform:rotate(90deg);}
+  /* Pure-CSS expand/collapse: grid-template-rows is one of the few "auto-like"
+     values browsers can transition smoothly. The 0fr->1fr row IS the content's
+     own natural height, so no JS height measurement is needed. The `display:grid`
+     here also overrides the browser's default `details:not([open]) > *{display:none}`
+     rule, which would otherwise hide this element instantly with no way to animate it. */
+  .quick-actions-body{
+    display:grid;
+    grid-template-rows:0fr;
+    transition:grid-template-rows .28s cubic-bezier(.4,0,.2,1);
+  }
+  .quick-actions-detail[open] .quick-actions-body{grid-template-rows:1fr;}
+  .quick-actions-body-inner{overflow:hidden;min-height:0;}
   .subpanel-row-label{color:var(--muted);font-size:0.78rem;margin-bottom:8px;}
   .quick-equal-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .quick-equal-row .mode-toggle{margin-top:0;}
@@ -1127,10 +1145,6 @@ let quickAssignMode = null;
 // loaded/opened/cleared, same call sites as resetQuickAssignMode() below.
 let quickActionsExpanded = false;
 function resetQuickAssignMode(){ quickAssignMode = null; quickActionsExpanded = false; }
-function toggleQuickActionsPanel(){
-  quickActionsExpanded = !quickActionsExpanded;
-  renderReceipt();
-}
 function startEditManualItem(itemId){
   editingManualItemId = itemId;
   renderReceipt();
@@ -1688,21 +1702,23 @@ function renderReceipt(){
         ${paidByBlock}
       </div>
       <div class="section-kicker" style="margin:0 0 9px;">Чиї це покупки:</div>
-      <div class="buyer-detail quick-actions-detail">
-        <div class="subpanel-title clickable" onclick="toggleQuickActionsPanel()" style="${quickActionsExpanded?'margin-bottom:10px;border-bottom:1px solid;border-image:linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.01),rgba(255,255,255,0)) 1;padding-bottom:8px;':''}">
-          Швидкі дії<svg class="disclosure-arrow${quickActionsExpanded?' open':''}" viewBox="0 0 8 14"><path d="M1 1L7 7L1 13"/></svg>
-        </div>
-        ${quickActionsExpanded ? `
-          <div class="quick-equal-row">
-            <div class="mode-toggle">
-              <button type="button" class="${quickAssignMode==='all'?'active':''}" onclick="selectQuickAssignAll()">На всіх</button>
-              <button type="button" class="${quickAssignMode==='selective'?'active':''}" onclick="selectQuickAssignSelective()">Вибірково</button>
+      <details class="buyer-detail quick-actions-detail" ${quickActionsExpanded?'open':''} ontoggle="quickActionsExpanded=this.open">
+        <summary class="subpanel-title clickable">
+          Швидкі дії<svg class="disclosure-arrow" viewBox="0 0 8 14"><path d="M1 1L7 7L1 13"/></svg>
+        </summary>
+        <div class="quick-actions-body">
+          <div class="quick-actions-body-inner">
+            <div class="quick-equal-row">
+              <div class="mode-toggle">
+                <button type="button" class="${quickAssignMode==='all'?'active':''}" onclick="selectQuickAssignAll()">На всіх</button>
+                <button type="button" class="${quickAssignMode==='selective'?'active':''}" onclick="selectQuickAssignSelective()">Вибірково</button>
+              </div>
+              <span class="icon-chip" onclick="resetAllAssignments()" aria-label="Скинути">✕<span class="tooltip">Скинути</span></span>
             </div>
-            <span class="icon-chip" onclick="resetAllAssignments()" aria-label="Скинути">✕<span class="tooltip">Скинути</span></span>
+            ${quickAssignMode==='selective' ? `<div class="row" style="margin-top:12px;">${quickBuyerChips}</div>` : ''}
           </div>
-          ${quickAssignMode==='selective' ? `<div class="row" style="margin-top:12px;">${quickBuyerChips}</div>` : ''}
-        ` : ''}
-      </div>
+        </div>
+      </details>
       <div class="assign-block">${assignRows}</div>
     </div>
   `;
@@ -2350,10 +2366,9 @@ function allocateItem(it){
 
 /* ---------- RESULTS ---------- */
 const expandedBuyerDetails = new Set();
-function toggleBuyerDetail(bid){
-  if(expandedBuyerDetails.has(bid)) expandedBuyerDetails.delete(bid);
-  else expandedBuyerDetails.add(bid);
-  renderResults();
+function toggleBuyerDetail(bid, isOpen){
+  if(isOpen) expandedBuyerDetails.add(bid);
+  else expandedBuyerDetails.delete(bid);
 }
 function pluralChastka(n){
   n = Math.round(Math.abs(n));
@@ -2597,9 +2612,8 @@ function renderResults(){
   const grandTotal = round2(Object.values(totals).reduce((a,v)=>a+v,0));
   const rows = state.buyers.map(b=>{
     const expanded = expandedBuyerDetails.has(b.id);
-    const items = expanded ? buyerItemBreakdown(b.id) : [];
-    const detailHtml = expanded ? (
-      items.length>0 ? `
+    const items = buyerItemBreakdown(b.id);
+    const detailHtml = items.length>0 ? `
         <div class="buyer-detail">
           ${items.map(it=>`
             <div class="buyer-detail-row">
@@ -2609,16 +2623,15 @@ function renderResults(){
             </div>
           `).join('')}
         </div>
-      ` : `<div class="buyer-detail"><div class="empty" style="padding:10px;">Немає витрат</div></div>`
-    ) : '';
+      ` : `<div class="buyer-detail"><div class="empty" style="padding:10px;">Немає витрат</div></div>`;
     return `
-      <div class="result-buyer-wrap">
-        <div class="result-buyer clickable" onclick="toggleBuyerDetail('${b.id}')">
-          <span class="name"><svg class="disclosure-arrow${expanded?' open':''}" viewBox="0 0 8 14"><path d="M1 1L7 7L1 13"/></svg>${escapeHtml(b.name)}</span>
+      <details class="result-buyer-wrap" ${expanded?'open':''} ontoggle="toggleBuyerDetail('${b.id}', this.open)">
+        <summary class="result-buyer clickable">
+          <span class="name"><svg class="disclosure-arrow" viewBox="0 0 8 14"><path d="M1 1L7 7L1 13"/></svg>${escapeHtml(b.name)}</span>
           <span class="sum">${fmtMoney(totals[b.id]||0)}</span>
-        </div>
+        </summary>
         ${detailHtml}
-      </div>
+      </details>
     `;
   }).join('');
 
