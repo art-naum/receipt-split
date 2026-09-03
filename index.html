@@ -92,7 +92,7 @@
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
     background:transparent;
     border:none;
-    color:rgba(255,255,255,0.55);
+    color:var(--ink-soft);
     font-family:inherit;
     font-size:0.6rem;
     font-weight:600;
@@ -105,10 +105,15 @@
     text-overflow:ellipsis;
     transition:color .2s ease;
   }
-  .quick-nav-item.active{color:#fff;}
+  .quick-nav-item.active{color:var(--accent-dark);}
   .quick-nav-icon{width:20px;height:20px;flex-shrink:0;}
   .quick-nav-icon path, .quick-nav-icon circle, .quick-nav-icon rect{
     fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+  }
+  .quick-nav-item.active .quick-nav-icon path,
+  .quick-nav-item.active .quick-nav-icon circle,
+  .quick-nav-item.active .quick-nav-icon rect{
+    stroke-width:2.1;
   }
   .bg-aurora{
     position:fixed;
@@ -2990,25 +2995,22 @@ function scrollToQuickNavSection(id){
   quickNavSuppressTimer = setTimeout(()=>{ quickNavSuppressed = false; }, 900);
   el.scrollIntoView({behavior:'smooth', block:'start'});
 }
-// The nav is only useful once every section has something to jump to.
-// Section 3 (#assignSection) is emptied out (not removed) when there's no
-// active receipt, and Section 4/5 (#section4/#section5) don't get rendered
-// at all until there's a receipt with a valid payer — so "all six visible"
-// means #assignSection has content AND both those ids exist.
+// The nav becomes useful as soon as Section 2 has a receipt to work with —
+// either an uploaded XML or a manually-started one (state.receipt is set in
+// both cases). It disappears again once there's no active receipt (before
+// one is loaded, after "Завантажити інший чек", or after it's saved to
+// history). #receiptSection is rewritten by renderReceipt() on every single
+// one of those transitions, so watching its childList is a reliable proxy
+// for "state.receipt just changed" without having to hook every call site.
 function updateQuickNavVisibility(){
   const wrap = document.getElementById('quickNavWrap');
   if(!wrap) return;
-  const assignSection = document.getElementById('assignSection');
-  const allVisible = !!(assignSection && assignSection.children.length>0
-    && document.getElementById('section4')
-    && document.getElementById('section5'));
-  wrap.classList.toggle('hidden', !allVisible);
-  if(allVisible) updateQuickNav();
+  const hasReceipt = !!state.receipt;
+  wrap.classList.toggle('hidden', !hasReceipt);
+  if(hasReceipt) updateQuickNav();
 }
 new MutationObserver(updateQuickNavVisibility)
-  .observe(document.getElementById('assignSection'), {childList:true});
-new MutationObserver(updateQuickNavVisibility)
-  .observe(document.getElementById('resultsSection'), {childList:true, subtree:true});
+  .observe(document.getElementById('receiptSection'), {childList:true});
 updateQuickNavVisibility();
 function updateQuickNav(){
   if(quickNavSuppressed) return; // a click just triggered navigation — let it settle instead of racing it
