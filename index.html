@@ -655,31 +655,35 @@
      close" mechanism has nothing to act on and never fights our
      transitions: closing plays exactly the same as opening. The `+`
      selector below just watches the details' `open` attribute.
-     Fade and height-collapse are deliberately staggered rather than run
-     concurrently: on open the row grows first and the content fades in
-     as it nears full size; on close the content fades out first (while
-     the row still holds its full height, so the fade is clearly visible
-     against a stable backdrop) and only then does the row shrink, by
-     which point there's nothing left inside to clip mid-fade. */
+     The content itself fades and slides between two states — hidden
+     (opacity 0, shifted up 20px) and visible (opacity 1, at rest) —
+     using the same 0.5s transition both ways. Opening naturally plays
+     that as "drops down into place while fading in"; closing is simply
+     the same transition run in reverse, i.e. "lifts up and fades out"
+     (movement bottom-to-top). The row's own height transition is kept
+     in sync at the same 0.5s so it doesn't finish collapsing/growing
+     before the slide+fade has had time to complete. */
   .quick-actions-body{
     display:grid;
     grid-template-rows:0fr;
-    transition:grid-template-rows .22s cubic-bezier(.4,0,.2,1) .1s;
+    transition:grid-template-rows .5s cubic-bezier(.4,0,.2,1);
   }
   .qa-toggle[open] + .quick-actions-body{
     grid-template-rows:1fr;
-    transition:grid-template-rows .28s cubic-bezier(.4,0,.2,1);
+    transition:grid-template-rows .5s cubic-bezier(.4,0,.2,1);
   }
   .quick-actions-body-inner{
     overflow:hidden;
     min-height:0;
     opacity:0;
-    transition:opacity .15s ease;
+    transform:translateY(-20px);
+    transition:opacity .5s ease, transform .5s ease;
   }
   .qa-toggle[open] + .quick-actions-body .quick-actions-body-inner{
     overflow:visible;
     opacity:1;
-    transition:opacity .2s ease .08s;
+    transform:translateY(0);
+    transition:opacity .5s ease, transform .5s ease;
   }
   .subpanel-row-label{color:var(--muted);font-size:0.78rem;margin-bottom:8px;}
   .quick-equal-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
