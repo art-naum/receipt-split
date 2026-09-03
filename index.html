@@ -646,8 +646,8 @@
     font-size:0.68rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
     color:var(--muted);margin:0 0 10px;
   }
-  .subpanel-title.clickable{cursor:pointer;display:flex;align-items:center;padding:3px 0;margin:-3px 0 0;user-select:none;}
-  .qa-toggle[open]>summary{margin-bottom:10px;border-bottom:1px solid;border-image:linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.01),rgba(255,255,255,0)) 1;padding-bottom:8px;}
+  .subpanel-title.clickable{cursor:pointer;display:flex;align-items:center;padding:3px 0;margin:-3px 0 3px;user-select:none;}
+  .qa-toggle[open]>summary{}
   .qa-toggle[open]>summary .disclosure-arrow{transform:rotate(90deg);}
   /* The collapsible content is a plain sibling <div> right after the
      <details> — not a child of it. <details> only ever contains its
@@ -664,26 +664,34 @@
      in sync at the same 0.5s so it doesn't finish collapsing/growing
      before the slide+fade has had time to complete. */
   .quick-actions-body{
-    display:grid;
-    grid-template-rows:0fr;
-    transition:grid-template-rows .5s cubic-bezier(.4,0,.2,1);
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .4s ease .1s;
   }
   .qa-toggle[open] + .quick-actions-body{
-    grid-template-rows:1fr;
-    transition:grid-template-rows .5s cubic-bezier(.4,0,.2,1);
+    grid-template-rows: 1fr;
+    transition: grid-template-rows .3s ease;
   }
   .quick-actions-body-inner{
-    overflow:hidden;
-    min-height:0;
-    opacity:0;
-    transform:translateY(-20px);
-    transition:opacity .5s ease, transform .5s ease;
+    overflow: hidden;
+    min-height: 0;
+    opacity: 0;
+    transform: translateY(-5px);
+    transition: opacity .3s ease, margin .3s ease, padding .3s ease, transform .3s ease, border .3s ease;
+    margin-top: 0px;
+    padding-top: 0px;
+    border-top: 0px;
   }
   .qa-toggle[open] + .quick-actions-body .quick-actions-body-inner{
-    overflow:visible;
-    opacity:1;
-    transform:translateY(0);
-    transition:opacity .5s ease, transform .5s ease;
+    overflow: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity .5s ease, padding .5s ease, margin .5s ease, transform .5s ease, border .5s ease;
+    border-image: linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.01),rgba(255,255,255,0)) 1;
+    border-top: 1px solid;
+    padding-top: 10px;
+    margin-top: 6px;
+    margin-bottom: 8px;
   }
   .subpanel-row-label{color:var(--muted);font-size:0.78rem;margin-bottom:8px;}
   .quick-equal-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
@@ -744,7 +752,7 @@
   }
   .buyer-detail{
     margin:6px 2px 0;
-    padding:4px 14px 8px;
+    padding:4px 14px 4px;
     border-left:2px solid var(--line);
     background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0));
     border-radius:12px;
