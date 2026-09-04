@@ -80,7 +80,7 @@
     top:4px;bottom:4px;left:0;
     width:0;
     border-radius:980px;
-    background:linear-gradient(135deg, rgba(0,0,0,0.52), rgba(0,0,0,0.34)), rgba(12,13,18,0.38);
+    background:linear-gradient(135deg, rgba(0,0,0,0.26), rgba(0,0,0,0.17)), rgba(12,13,18,0.18);
     border:1px solid rgba(255,255,255,0.07);
     transition:transform .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1);
     z-index:0;
@@ -91,15 +91,16 @@
     z-index:1;
     flex:1 1 0;
     min-width:0;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
     background:transparent;
     border:none;
-    color:var(--ink-soft);
+    color:rgba(255,255,255,0.92);
     font-family:inherit;
-    font-size:0.6rem;
+    font-size:11px;
+    line-height:1.15;
     font-weight:600;
     letter-spacing:0;
-    padding:10px 1px;
+    padding:8px 10px;
     border-radius:980px;
     cursor:pointer;
     white-space:nowrap;
@@ -108,7 +109,7 @@
     transition:color .2s ease;
   }
   .quick-nav-item.active{color:var(--accent-dark);}
-  .quick-nav-icon{width:20px;height:20px;display:block;flex-shrink:0;}
+  .quick-nav-icon{width:22px;height:22px;display:block;flex-shrink:0;}
   .quick-nav-icon path{fill:currentColor;}
   .bg-aurora{
     position:fixed;
@@ -3104,7 +3105,13 @@ window.addEventListener('scrollend', ()=>{
   quickNavSuppressed = false;
   clearTimeout(quickNavSuppressTimer);
   updateQuickNav();
-  releaseQuickNavExpansion();
+  // Only a nav-click leaves quickNavNavigationExpanded true. Calling this
+  // unconditionally here would reset quickNavLastScrollY on every ordinary
+  // scroll settle too (not just after a tap), which races out — and
+  // normally wins against — the rAF-driven delta check in
+  // updateQuickNavCompactness for any scroll quick enough that 'scrollend'
+  // fires before the next scroll-driven check does.
+  if(quickNavNavigationExpanded) releaseQuickNavExpansion();
 });
 window.addEventListener('resize', updateQuickNav);
 updateQuickNav();
