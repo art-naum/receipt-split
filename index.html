@@ -65,21 +65,23 @@
     width:100%;
     max-width:560px;
     pointer-events:auto;
-    background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)), rgba(18,19,26,0.60);
+    /* A light, translucent glass surface; the active segment supplies the
+       darker contrast, rather than making the whole bar feel heavy. */
+    background:linear-gradient(135deg, rgba(255,255,255,0.20), rgba(255,255,255,0.07)), rgba(50,51,58,0.32);
     backdrop-filter:blur(30px) saturate(180%);
     -webkit-backdrop-filter:blur(30px) saturate(180%);
-    border:1px solid rgba(255,255,255,0.14);
+    border:1px solid rgba(255,255,255,0.18);
     border-radius:980px;
     padding:4px;
-    box-shadow:0 12px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.08) inset;
+    box-shadow:0 12px 32px rgba(0,0,0,0.38), 0 1px 0 rgba(255,255,255,0.14) inset;
   }
   .quick-nav-highlight{
     position:absolute;
     top:4px;bottom:4px;left:0;
     width:0;
     border-radius:980px;
-    background:linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.03)), rgba(255,255,255,0.10);
-    border:1px solid rgba(255,255,255,0.14);
+    background:linear-gradient(135deg, rgba(0,0,0,0.52), rgba(0,0,0,0.34)), rgba(12,13,18,0.38);
+    border:1px solid rgba(255,255,255,0.07);
     transition:transform .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1);
     z-index:0;
     pointer-events:none;
@@ -106,15 +108,8 @@
     transition:color .2s ease;
   }
   .quick-nav-item.active{color:var(--accent-dark);}
-  .quick-nav-icon{width:20px;height:20px;flex-shrink:0;}
-  .quick-nav-icon path, .quick-nav-icon circle, .quick-nav-icon rect{
-    fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
-  }
-  .quick-nav-item.active .quick-nav-icon path,
-  .quick-nav-item.active .quick-nav-icon circle,
-  .quick-nav-item.active .quick-nav-icon rect{
-    stroke-width:2.1;
-  }
+  .quick-nav-icon{width:20px;height:20px;display:block;flex-shrink:0;}
+  .quick-nav-icon path{fill:currentColor;}
   .bg-aurora{
     position:fixed;
     inset:0;
@@ -289,9 +284,10 @@
   .chip .del:hover{opacity:1;}
   .chip .chip-name{cursor:text;}
   .chip .chip-name:hover{text-decoration:underline dotted;text-underline-offset:2px;}
-  .gender-emoji{position:relative;cursor:pointer;font-size:1rem;line-height:1;display:inline-block;margin:-2px 0px 0px -3px;}
-  .gender-emoji-icon{display:inline-block;transition:transform .15s ease;}
-  .gender-emoji:hover .gender-emoji-icon{transform:scale(1.2);}
+  .gender-toggle{position:relative;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin:0 0 0 -3px;color:var(--ink-soft);}
+  .gender-toggle-icon{width:20px;height:20px;display:block;transition:transform .15s ease;}
+  .gender-toggle-icon path{fill:currentColor;}
+  .gender-toggle:hover .gender-toggle-icon{transform:scale(1.16);}
   .chip-editing{cursor:default;padding-top:6px;padding-bottom:6px;}
   .chip-edit-input{
     font:inherit;
@@ -719,7 +715,7 @@
     color:var(--ink-soft);
     transition:all .15s ease;
   }
-  .icon-chip .tooltip, .gender-emoji .tooltip{
+  .icon-chip .tooltip, .gender-toggle .tooltip{
     position:absolute;
     bottom:calc(100% + 9px);
     left:50%;
@@ -739,7 +735,9 @@
     pointer-events:none;
     z-index:20;
   }
-  .icon-chip .tooltip::after, .gender-emoji .tooltip::after{
+  .gender-toggle .tooltip{text-align:center;line-height:1.25;}
+  .gender-toggle .tooltip span{display:block;}
+  .icon-chip .tooltip::after, .gender-toggle .tooltip::after{
     content:'';
     position:absolute;
     top:100%;left:50%;
@@ -747,7 +745,7 @@
     border:5px solid transparent;
     border-top-color:#1c1c22;
   }
-  .icon-chip:hover .tooltip, .gender-emoji:hover .tooltip{opacity:1;visibility:visible;}
+  .icon-chip:hover .tooltip, .gender-toggle:hover .tooltip{opacity:1;visibility:visible;}
   .icon-chip:hover{border-color:var(--accent);}
   .icon-chip:active{
     background:linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0)), var(--accent);
@@ -868,19 +866,19 @@
   <nav class="quick-nav" id="quickNav">
     <div class="quick-nav-highlight" id="quickNavHighlight"></div>
     <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section1')">
-      <svg class="quick-nav-icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.6 2.5-6.2 5.5-6.2s5.5 2.6 5.5 6.2"/><circle cx="17.5" cy="8.5" r="2.4"/><path d="M14.8 13.6c1-.7 2-1 2.7-1 2.6 0 4.5 2.2 4.5 5.4"/></svg>
+      <svg class="quick-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11.4a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4ZM2.7 20.8c0-4.2 2.8-7.1 6.3-7.1s6.3 2.9 6.3 7.1c0 .4-.3.7-.7.7H3.4a.7.7 0 0 1-.7-.7Z"/><path d="M17.2 10.5a3.4 3.4 0 1 0-1.6-6.4 5.5 5.5 0 0 1 0 5.9c.5.3 1 .7 1.5 1.1Z" opacity=".78"/><path d="M16.3 13.5c2.9.3 5 2.7 5 6.1 0 .4-.3.7-.7.7h-3.4c0-2.8-1-5.2-2.8-6.8.6-.1 1.2-.1 1.9 0Z" opacity=".78"/></svg>
       <span>Покупці</span>
     </button>
     <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('receiptSection')">
-      <svg class="quick-nav-icon" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/></svg>
+      <svg class="quick-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.2 2.5h11.6c1.1 0 2 .9 2 2v15.2c0 1.4-1.5 2.2-2.6 1.4L15 19.7l-2.2 1.4-2.2-1.4-2.2 1.4C7.4 21.9 6 21.1 6 19.7V4.5c0-1.1.9-2 2-2h-1.8ZM8.8 7.2c0 .5.4.9.9.9h4.6a.9.9 0 1 0 0-1.8H9.7c-.5 0-.9.4-.9.9Zm0 4.2c0 .5.4.9.9.9h6.6a.9.9 0 1 0 0-1.8H9.7c-.5 0-.9.4-.9.9Zm0 4.2c0 .5.4.9.9.9h3.9a.9.9 0 1 0 0-1.8H9.7c-.5 0-.9.4-.9.9Z"/></svg>
       <span>Чек</span>
     </button>
     <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('assignSection')">
-      <svg class="quick-nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 12V3.5M12 12l7.2 4.3"/></svg>
+      <svg class="quick-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 2.5A9.5 9.5 0 1 0 21.5 13H11V2.5Z"/><path d="M13 2.5V11h8.5A9.5 9.5 0 0 0 13 2.5Z" opacity=".72"/></svg>
       <span>Розподіл</span>
     </button>
     <button type="button" class="quick-nav-item" onclick="scrollToQuickNavSection('section4')">
-      <svg class="quick-nav-icon" viewBox="0 0 24 24"><path d="M5 20V12M12 20V6M19 20v-6.5"/></svg>
+      <svg class="quick-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M6.4 2.5h11.2c1.1 0 2 .9 2 2v15c0 1.1-.9 2-2 2H6.4c-1.1 0-2-.9-2-2v-15c0-1.1.9-2 2-2Zm2 3.2v3.4h7.2V5.7H8.4Zm0 6h2.5v2.5H8.4v-2.5Zm4.6 0h2.5v2.5H13v-2.5Zm-4.6 4.3h2.5v2.5H8.4V16Zm4.6 0h2.5v2.5H13V16Z"/></svg>
       <span>Підсумки</span>
     </button>
   </nav>
@@ -1043,7 +1041,7 @@ function saveBuyerName(id, value){
   renderBuyers();
   if(state.receipt){ renderReceipt(); renderResults(); }
 }
-// Toggles the emoji shown next to a buyer's name in Section 1 only — the
+// Toggles the filled gender icon shown next to a buyer's name in Section 1 — the
 // underlying gender also drives grammatical agreement in Section 5's wording
 // (сплатив/сплатила, витратив/витратила, він винен/вона винна, etc.), so a
 // results re-render is needed too whenever it changes.
@@ -1057,6 +1055,14 @@ function toggleBuyerGender(id){
   // regardless of whether a receipt is currently open for editing), so it
   // needs refreshing either way.
   renderResults();
+}
+function buyerGenderIcon(gender){
+  if(gender==='f'){
+    // Variant C: narrow dress with separate sleeves for a clear full figure.
+    return `<svg class="gender-toggle-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4Z"/><path d="M10.1 9.3h3.8l3.2 11.4H6.9l3.2-11.4Z"/><path d="M9.1 10.2 6 15.6l1.8 1 2.5-3.6-1.2-2.8ZM14.9 10.2l3.1 5.4-1.8 1-2.5-3.6 1.2-2.8Z"/></svg>`;
+  }
+  // Variant 0: the original full male figure with angled arms and legs.
+  return `<svg class="gender-toggle-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4Z"/><path d="M9.7 9h4.6c.8 0 1.5.4 1.9 1.1l2.1 3.6h-2.6l-1-1.6v3l1.2 5.7h-2.7l-1.2-4.3-1.2 4.3H8.1l1.2-5.7v-3l-1 1.6H5.7l2.1-3.6C8.2 9.4 8.9 9 9.7 9Z"/></svg>`;
 }
 function removeBuyer(id){
   state.buyers = state.buyers.filter(b=>b.id!==id);
@@ -1086,7 +1092,8 @@ function renderBuyers(){
             onblur="saveBuyerName('${b.id}', this.value)" oninput="capitalizeFirst(this); resizeChipInput(this)">
         </span>`;
       }
-      return `<span class="chip"><span class="gender-emoji" onclick="event.stopPropagation();toggleBuyerGender('${b.id}')"><span class="gender-emoji-icon">${b.gender==='f'?'👩':'👨'}</span><span class="tooltip">Змінити стать</span></span><span class="chip-name" onclick="startEditBuyer('${b.id}')">${escapeHtml(b.name)}</span> <span class="del" onclick="event.stopPropagation();removeBuyer('${b.id}')">✕</span></span>`;
+      const genderLabel = b.gender==='f' ? 'Жінка' : 'Чоловік';
+      return `<span class="chip"><span class="gender-toggle" role="button" aria-label="Змінити стать: зараз ${genderLabel}" onclick="event.stopPropagation();toggleBuyerGender('${b.id}')">${buyerGenderIcon(b.gender)}<span class="tooltip"><span>Змінити стать</span><span>Зараз: ${genderLabel}</span></span></span><span class="chip-name" onclick="startEditBuyer('${b.id}')">${escapeHtml(b.name)}</span> <span class="del" onclick="event.stopPropagation();removeBuyer('${b.id}')">✕</span></span>`;
     }).join('');
   }
   updateSaveButtonVisibility();
@@ -2980,7 +2987,29 @@ function setQuickNavActive(idx){
 }
 let quickNavSuppressed = false;
 let quickNavSuppressTimer = null;
+let quickNavNavigationExpanded = false;
+let quickNavExpansionTimer = null;
+function releaseQuickNavExpansion(){
+  clearTimeout(quickNavExpansionTimer);
+  quickNavExpansionTimer = null;
+  quickNavNavigationExpanded = false;
+  // Record the final position so the click's own scroll is never treated as
+  // a new downward gesture that should collapse the bar.
+  quickNavLastScrollY = window.scrollY;
+}
+function keepQuickNavExpandedForNavigation(){
+  const nav = document.getElementById('quickNav');
+  if(nav) nav.classList.remove('compact');
+  quickNavNavigationExpanded = true;
+  quickNavLastScrollY = window.scrollY;
+  clearTimeout(quickNavExpansionTimer);
+  // Fallback for browsers without scrollend, or when no scroll is needed.
+  quickNavExpansionTimer = setTimeout(releaseQuickNavExpansion, 1000);
+}
 function scrollToQuickNavSection(id){
+  // Every tap on the navigation bar expands it, even if a conditional
+  // destination (such as the summary) is not available yet.
+  keepQuickNavExpandedForNavigation();
   const el = document.getElementById(id);
   if(!el) return; // section 4/5 may not exist yet (no receipt / no valid payer) — no-op rather than error
   // Move the highlight to the target right away instead of waiting for
@@ -2990,6 +3019,8 @@ function scrollToQuickNavSection(id){
   // it can't fight this and drag the highlight back to an intermediate spot.
   const idx = QUICK_NAV_IDS.indexOf(id);
   if(idx!==-1) setQuickNavActive(idx);
+  // A direct navigation choice should always reveal the complete menu. Its
+  // subsequent programmatic downward scroll must not re-apply compact mode.
   quickNavSuppressed = true;
   clearTimeout(quickNavSuppressTimer);
   quickNavSuppressTimer = setTimeout(()=>{ quickNavSuppressed = false; }, 900);
@@ -3046,6 +3077,15 @@ function updateQuickNavCompactness(){
   const nav = document.getElementById('quickNav');
   if(!nav) return;
   const y = window.scrollY;
+  if(quickNavNavigationExpanded){
+    nav.classList.remove('compact');
+    quickNavLastScrollY = y;
+    // Keep the expansion for the whole scroll animation. Each new scroll
+    // event extends the fallback debounce in browsers lacking scrollend.
+    clearTimeout(quickNavExpansionTimer);
+    quickNavExpansionTimer = setTimeout(releaseQuickNavExpansion, 240);
+    return;
+  }
   if(y <= 0){
     nav.classList.remove('compact'); // always full size once back at the very top
   }else if(y > quickNavLastScrollY + 2){
@@ -3064,6 +3104,7 @@ window.addEventListener('scrollend', ()=>{
   quickNavSuppressed = false;
   clearTimeout(quickNavSuppressTimer);
   updateQuickNav();
+  releaseQuickNavExpansion();
 });
 window.addEventListener('resize', updateQuickNav);
 updateQuickNav();
