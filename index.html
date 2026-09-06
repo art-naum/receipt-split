@@ -204,6 +204,9 @@
     display:inline-flex;align-items:center;justify-content:center;
   }
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .buyer-add-row{flex-wrap:nowrap;}
+  .buyer-add-row input{flex:1 1 auto;min-width:0;}
+  .buyer-add-row .btn-primary{flex-shrink:0;}
   input[type=text], input[type=number], select{
     font-family:inherit;
     font-size:0.92rem;
@@ -850,8 +853,8 @@
   <!-- BUYERS -->
   <div class="card" id="section1">
     <h2><span class="num">1</span> Покупці</h2>
-    <div class="row">
-      <input type="text" id="newBuyerName" placeholder="Ім'я покупця" style="min-width:200px;" onkeydown="if(event.key==='Enter'){ addBuyer(); }" oninput="capitalizeFirst(this)">
+    <div class="row buyer-add-row">
+      <input type="text" id="newBuyerName" placeholder="Ім'я покупця" onkeydown="if(event.key==='Enter'){ addBuyer(); }" oninput="capitalizeFirst(this)">
       <button class="btn-primary" onclick="addBuyer()">Додати</button>
     </div>
     <div class="buyer-list" id="buyerList"></div>
