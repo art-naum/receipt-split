@@ -1676,7 +1676,7 @@ function renderReceipt(){
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
           <h2 style="margin:0;"><span class="num">2</span> Чек ${r.checkNo?('№'+r.checkNo):''}</h2>
-          <button type="button" class="link-btn" onclick="requestReupload()">Завантажити інший чек</button>
+          <button type="button" class="link-btn" onclick="requestReupload()">Інший чек</button>
         </div>
         <div class="warn-banner">Спочатку додай покупців у розділі 1 — тоді зможеш розподілити позиції.</div>
       </div>
@@ -1743,7 +1743,7 @@ function renderReceipt(){
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
         <h2 style="margin:0;"><span class="num">2</span> Чек ${r.checkNo?('№'+r.checkNo):''}</h2>
-        <button type="button" class="link-btn" onclick="requestReupload()">${r.manual ? 'Почати новий чек' : 'Завантажити інший чек'}</button>
+        <button type="button" class="link-btn" onclick="requestReupload()">${r.manual ? 'Почати новий чек' : 'Інший чек'}</button>
       </div>
       <div class="receipt-outer">
         <div class="receipt-inner">
@@ -3099,7 +3099,7 @@ function scrollToQuickNavSection(id){
 // The nav becomes useful as soon as Section 2 has a receipt to work with —
 // either an uploaded XML or a manually-started one (state.receipt is set in
 // both cases). It disappears again once there's no active receipt (before
-// one is loaded, after "Завантажити інший чек", or after it's saved to
+// one is loaded, after "Інший чек", or after it's saved to
 // history). #receiptSection is rewritten by renderReceipt() on every single
 // one of those transitions, so watching its childList is a reliable proxy
 // for "state.receipt just changed" without having to hook every call site.
