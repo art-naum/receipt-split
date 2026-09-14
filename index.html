@@ -2943,7 +2943,7 @@ function renderResults(){
     ? (totalItemsCount===1
         ? `<span style="color:${checkColor};">✓</span> Єдину позицію розподілено, загалом на суму ${sumText}`
         : `<span style="color:${checkColor};">✓</span> Усі ${totalItemsCount} ${pluralPozytsiya(totalItemsCount)} розподілено, загалом на суму ${sumText}`)
-    : `Розподілено ${assignedItemsCount} з ${totalItemsCount} позицій, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(totalSumSafe)}`;
+    : `Розподілено ${assignedItemsCount} ${pluralPozytsiya(assignedItemsCount)} з ${totalItemsCount}, на суму ${fmtMoney(grandTotal)} з ${fmtMoney(totalSumSafe)}`;
   const progressHtml = totalItemsCount===0 ? '' : `
     <div class="progress-block">
       <div class="progress-label">${progressLabelText}</div>
