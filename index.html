@@ -529,6 +529,20 @@
   .assign-item-name .nm{font-weight:600;}
   .assign-item-name .sub{color:var(--muted);font-size:0.78rem;display:block;margin-top:2px;}
   .assign-item-name .sub.r-disc{color:var(--accent-dark);}
+  input.discount-edit-input{
+    width:54px;
+    background:rgba(255,255,255,0.08);
+    border:1px solid var(--line);
+    border-radius:6px;
+    color:var(--accent-dark);
+    font:inherit;
+    font-size:0.78rem;
+    padding:1px 4px;
+    text-align:right;
+    -moz-appearance:textfield;
+  }
+  .discount-edit-input::-webkit-outer-spin-button,
+  .discount-edit-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
   .assign-controls{flex:2 1 340px;min-width:280px;}
   .mode-toggle{
     position:relative;
@@ -563,6 +577,46 @@
     transition:color .15s ease;
   }
   .mode-toggle button.active{color:#000;}
+  .ios-switch{position:relative;display:inline-block;width:44px;height:26px;flex-shrink:0;cursor:pointer;}
+  .ios-switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:2;}
+  .ios-switch-track{
+    position:absolute;inset:0;
+    background:#3a3a3c;
+    border-radius:999px;
+    transition:background-color .2s ease;
+  }
+  .ios-switch input:checked ~ .ios-switch-track{background:#34c759;}
+  .ios-switch-knob{
+    position:absolute;
+    top:2px;left:2px;
+    width:22px;height:22px;
+    background:#fff;
+    border-radius:50%;
+    box-shadow:0 3px 8px rgba(0,0,0,0.35), 0 1px 1px rgba(0,0,0,0.2);
+    transition:transform .2s cubic-bezier(.4,0,.2,1);
+  }
+  .ios-switch input:checked ~ .ios-switch-knob{transform:translateX(18px);}
+  .ios-switch-mark-on{
+    position:absolute;top:50%;left:7px;
+    width:1.6px;height:9px;
+    background:#fff;
+    transform:translateY(-50%);
+    opacity:0;
+    transition:opacity .15s ease;
+    pointer-events:none;
+  }
+  .ios-switch input:checked ~ .ios-switch-mark-on{opacity:1;}
+  .ios-switch-mark-off{
+    position:absolute;top:50%;right:6px;
+    width:9px;height:9px;
+    border:1.4px solid #fff;
+    border-radius:50%;
+    transform:translateY(-50%);
+    opacity:.9;
+    transition:opacity .15s ease;
+    pointer-events:none;
+  }
+  .ios-switch input:checked ~ .ios-switch-mark-off{opacity:0;}
   .manual-row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:0.82rem;}
   .manual-row .label{min-width:110px;color:var(--ink-soft);}
   .remainder{
@@ -1326,10 +1380,9 @@ function parseRqSchema(doc, fileName){
     return {
       id: uid('i'), n, name, qty, price, sum, discount, code, taxGroup,
       buyerIds: [], mode: 'equal', manualType: 'amount', manualValues: {},
-      _grossSum: grossSum
+      grossSum: grossSum
     };
   });
-
   // Some PRRO models print a whole-receipt discount as its own <D> line with
   // no NI reference at all (N is just that line's own position in the
   // receipt, not a pointer to which item it discounts) — unlike the
@@ -1342,12 +1395,13 @@ function parseRqSchema(doc, fileName){
   const unattributedDiscount = round2(discounts
     .filter(d => !d.getAttribute('NI') && !d.querySelector('NI'))
     .reduce((a,d) => a + parseInt(d.getAttribute('SM')||'0',10)/100, 0));
-  if(unattributedDiscount > 0.009 && items.length > 0){
-    const discountBase = items.reduce((a,i)=>a+i._grossSum,0);
-    const discountParts = splitProportionally(unattributedDiscount, items.map(i=>i._grossSum), discountBase);
+  const discountAutoDistributed = unattributedDiscount > 0.009 && items.length > 0;
+  if(discountAutoDistributed){
+    const discountBase = items.reduce((a,i)=>a+i.grossSum,0);
+    const discountParts = splitProportionally(unattributedDiscount, items.map(i=>i.grossSum), discountBase);
     items.forEach((item, idx)=>{
       item.discount = round2((item.discount||0) + discountParts[idx]);
-      item.sum = round2(item._grossSum - item.discount);
+      item.sum = round2(item.grossSum - item.discount);
     });
   }
 
@@ -1364,16 +1418,20 @@ function parseRqSchema(doc, fileName){
   // parts sum exactly to unattributedDiscount, but that discount amount
   // itself doesn't always divide the gross totals to the cent) onto the
   // last item, so the line items always foot exactly to the printed total.
-  if(unattributedDiscount > 0.009){
+  if(discountAutoDistributed){
     const calculated = round2(items.reduce((a,i)=>a+i.sum,0));
     const diff = round2(totalSum - calculated);
     if(Math.abs(diff) >= 0.01){
       const last = items[items.length-1];
       last.sum = round2(last.sum + diff);
-      last.discount = round2(last._grossSum - last.sum);
+      last.discount = round2(last.grossSum - last.sum);
     }
   }
-  items.forEach(item=>delete item._grossSum);
+  // Snapshot the app's own computed discount per item — "Змінити знижки" in
+  // Section 3 restores exactly this after manual edits, rather than
+  // re-running the proportional split (which isn't guaranteed to break
+  // rounding ties the same way twice).
+  items.forEach(item => { item.autoDiscount = item.discount; });
 
   // <E RND="1"> is the PRRO's own explicit flag that cash-rounding (to the nearest
   // 0.10 UAH, per NBU rules) was applied to this sale — a more reliable signal than
@@ -1500,7 +1558,7 @@ function parseRqSchema(doc, fileName){
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod,
     fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, payments, taxGroups, verifyUrl,
-    headerLines, paidBy: [], roundingAdjustment
+    headerLines, paidBy: [], roundingAdjustment, discountAutoDistributed
   };
 }
 
@@ -1532,7 +1590,7 @@ function parseCheckSchema(doc, fileName){
       id: uid('i'), n: String(idx+1), name, qty, price: unitPrice,
       sum, discount: discountSum, code: '', taxGroup,
       buyerIds: [], mode: 'equal', manualType: 'amount', manualValues: {},
-      _grossSum: grossSum
+      grossSum: grossSum
     };
   });
 
@@ -1545,30 +1603,34 @@ function parseCheckSchema(doc, fileName){
   // If the receipt-level discount is larger than the discounts explicitly
   // attached to individual rows, allocate the missing part proportionally.
   let globalDiscount = round2(Math.max(0, receiptDiscount - itemDiscountTotal));
-  if(globalDiscount > 0.009 && items.length > 0){
-    const baseTotal = items.reduce((a,i)=>a+i._grossSum,0);
+  const discountAutoDistributed = globalDiscount > 0.009 && items.length > 0;
+  if(discountAutoDistributed){
+    const baseTotal = items.reduce((a,i)=>a+i.grossSum,0);
     const referenceGross = grossTotal > 0 ? grossTotal : round2(totalSum + receiptDiscount);
     const discountBase = baseTotal > 0 ? baseTotal : referenceGross;
 
-    const discountParts = splitProportionally(globalDiscount, items.map(i=>i._grossSum), discountBase);
+    const discountParts = splitProportionally(globalDiscount, items.map(i=>i.grossSum), discountBase);
     items.forEach((item, idx)=>{
       item.discount = round2((item.discount||0) + discountParts[idx]);
-      item.sum = round2(item._grossSum - item.discount);
+      item.sum = round2(item.grossSum - item.discount);
     });
   }
 
   // Reconcile cent rounding to the fiscal total.
-  if(globalDiscount > 0.009){
+  if(discountAutoDistributed){
     const calculated = round2(items.reduce((a,i)=>a+i.sum,0));
     const diff = round2(totalSum - calculated);
     if(Math.abs(diff) >= 0.01){
       const last = items[items.length-1];
       last.sum = round2(last.sum + diff);
-      last.discount = round2(last._grossSum - last.sum);
+      last.discount = round2(last.grossSum - last.sum);
     }
   }
-
-  items.forEach(item=>delete item._grossSum);
+  // Snapshot the app's own computed discount per item — "Змінити знижки" in
+  // Section 3 restores exactly this after manual edits, rather than
+  // re-running the proportional split (which isn't guaranteed to break
+  // rounding ties the same way twice).
+  items.forEach(item => { item.autoDiscount = item.discount; });
 
   const orderDate = textOf(head,'ORDERDATE'); // DDMMYYYY
   const orderTime = textOf(head,'ORDERTIME'); // HHMMSS
@@ -1683,7 +1745,7 @@ function parseCheckSchema(doc, fileName){
     fn, tn, tnLabel, zn, docNumber, shiftSerial:'', payment, payments, taxGroups, verifyUrl,
     discountPercent: receiptDiscountPercent,
     ipn, orgName, pointName, pointAddr, cashier, cashDeskNum, headerLines,
-    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz, paidBy: [], roundingAdjustment: 0
+    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz, paidBy: [], roundingAdjustment: 0, discountAutoDistributed
   };
 }
 
@@ -1826,6 +1888,16 @@ function renderReceipt(){
               <span class="icon-chip" onclick="resetAllAssignments()" aria-label="Скинути">✕<span class="tooltip">Скинути</span></span>
             </div>
             ${quickAssignMode==='selective' ? `<div class="row" style="margin-top:12px;">${quickBuyerChips}</div>` : ''}
+            ${r.discountAutoDistributed ? `<div class="quick-equal-row" style="margin-top:12px;justify-content:space-between;">
+              <span style="font-size:0.85rem;color:var(--ink-soft);">Змінити знижки</span>
+              <label class="ios-switch">
+                <input type="checkbox" ${r.manualDiscountEdit?'checked':''} onchange="toggleManualDiscountEdit()">
+                <span class="ios-switch-track"></span>
+                <span class="ios-switch-mark-on"></span>
+                <span class="ios-switch-mark-off"></span>
+                <span class="ios-switch-knob"></span>
+              </label>
+            </div>` : ''}
           </div>
         </div>
       </div>
@@ -2297,7 +2369,7 @@ function renderAssignRow(it){
       <div class="assign-item-name">
         <span class="nm">${escapeHtml(it.name)}</span>
         <span class="sub">${fmtQty(it.qty)} × ${fmtMoney(it.price)} = <strong>${fmtMoney(it.sum)}</strong></span>
-        ${it.discount>0 ? `<span class="sub r-disc">знижка ${fmtMoney(it.discount)}</span>` : ''}
+        ${state.receipt.manualDiscountEdit ? `<span class="sub r-disc">знижка <input type="number" class="discount-edit-input" step="0.01" min="0" max="${it.grossSum}" value="${it.discount}" onclick="event.stopPropagation()" oninput="setItemDiscount('${it.id}', this.value)"> ₴</span>` : (it.discount>0 ? `<span class="sub r-disc">знижка ${fmtMoney(it.discount)}</span>` : '')}
       </div>
       <div class="assign-controls">
         <div class="row">${chips}</div>
@@ -2379,6 +2451,44 @@ function resetAllAssignments(){
   }
   r.items.forEach(it=>{ it.buyerIds=[]; it.mode='equal'; it.manualValues={}; });
   quickAssignMode = null;
+  renderReceipt();
+  renderResults();
+}
+// Flips the "Змінити знижки" switch. Turning it OFF restores every item's
+// discount to the app's own proportional split (the autoDiscount snapshot
+// taken at parse time) rather than re-running that split fresh — a second
+// run isn't guaranteed to land on the exact same numbers if rounding had to
+// break a tie, and the person's manual edits should cleanly disappear back
+// to the one true "automatic" state, not a slightly different recompute of
+// it. Section 2's receipt view reads the same state.receipt.items the input
+// fields below write to, so it picks up either direction automatically on
+// the next render — no separate sync step needed.
+function toggleManualDiscountEdit(){
+  const r = state.receipt;
+  if(!r) return;
+  r.manualDiscountEdit = !r.manualDiscountEdit;
+  if(!r.manualDiscountEdit){
+    r.items.forEach(item=>{
+      item.discount = item.autoDiscount;
+      item.sum = round2(item.grossSum - item.discount);
+    });
+  }
+  renderReceipt();
+  renderResults();
+}
+// Only reachable while "Змінити знижки" is on. Clamped to the item's own
+// gross value in both directions — a discount can't be negative or erase
+// more than the item was worth before it.
+function setItemDiscount(itemId, value){
+  const r = state.receipt;
+  if(!r) return;
+  const item = r.items.find(i=>i.id===itemId);
+  if(!item) return;
+  let discount = parseFloat(value);
+  if(!(discount >= 0)) discount = 0;
+  if(discount > item.grossSum) discount = item.grossSum;
+  item.discount = round2(discount);
+  item.sum = round2(item.grossSum - item.discount);
   renderReceipt();
   renderResults();
 }
