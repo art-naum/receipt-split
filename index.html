@@ -577,11 +577,11 @@
     transition:color .15s ease;
   }
   .mode-toggle button.active{color:#000;}
-  .ios-switch{position:relative;display:inline-block;width:44px;height:26px;flex-shrink:0;cursor:pointer;}
+  .ios-switch{position:relative;display:inline-block;width:60px;height:26px;flex-shrink:0;cursor:pointer;}
   .ios-switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:2;}
   .ios-switch-track{
     position:absolute;inset:0;
-    background:#3a3a3c;
+    background:#5d5d5f;
     border-radius:999px;
     transition:background-color .2s ease;
   }
@@ -589,16 +589,16 @@
   .ios-switch-knob{
     position:absolute;
     top:2px;left:2px;
-    width:22px;height:22px;
+    width:33px;height:22px;
     background:#fff;
-    border-radius:50%;
+    border-radius:50px;
     box-shadow:0 3px 8px rgba(0,0,0,0.35), 0 1px 1px rgba(0,0,0,0.2);
     transition:transform .2s cubic-bezier(.4,0,.2,1);
   }
-  .ios-switch input:checked ~ .ios-switch-knob{transform:translateX(18px);}
+  .ios-switch input:checked ~ .ios-switch-knob{transform:translateX(23px);}
   .ios-switch-mark-on{
-    position:absolute;top:50%;left:7px;
-    width:1.6px;height:9px;
+    position:absolute;top:50%;left:14px;
+    width:1.4px;height:10px;
     background:#fff;
     transform:translateY(-50%);
     opacity:0;
@@ -607,8 +607,8 @@
   }
   .ios-switch input:checked ~ .ios-switch-mark-on{opacity:1;}
   .ios-switch-mark-off{
-    position:absolute;top:50%;right:6px;
-    width:9px;height:9px;
+    position:absolute;top:50%;right:9px;
+    width:10px;height:10px;
     border:1.4px solid #fff;
     border-radius:50%;
     transform:translateY(-50%);
@@ -1886,18 +1886,16 @@ function renderReceipt(){
                 <button type="button" class="${quickAssignMode==='selective'?'active':''}" onclick="selectQuickAssignSelective()">Вибірково</button>
               </div>
               <span class="icon-chip" onclick="resetAllAssignments()" aria-label="Скинути">✕<span class="tooltip">Скинути</span></span>
+	            ${r.discountAutoDistributed ? `<span style="font-size:0.85rem;color:var(--ink-soft);">Змінити знижки</span>
+	              <label class="ios-switch">
+	                <input type="checkbox" ${r.manualDiscountEdit?'checked':''} onchange="toggleManualDiscountEdit()">
+	                <span class="ios-switch-track"></span>
+	                <span class="ios-switch-mark-on"></span>
+	                <span class="ios-switch-mark-off"></span>
+	                <span class="ios-switch-knob"></span>
+	              </label>` : ''}
             </div>
             ${quickAssignMode==='selective' ? `<div class="row" style="margin-top:12px;">${quickBuyerChips}</div>` : ''}
-            ${r.discountAutoDistributed ? `<div class="quick-equal-row" style="margin-top:12px;justify-content:space-between;">
-              <span style="font-size:0.85rem;color:var(--ink-soft);">Змінити знижки</span>
-              <label class="ios-switch">
-                <input type="checkbox" ${r.manualDiscountEdit?'checked':''} onchange="toggleManualDiscountEdit()">
-                <span class="ios-switch-track"></span>
-                <span class="ios-switch-mark-on"></span>
-                <span class="ios-switch-mark-off"></span>
-                <span class="ios-switch-knob"></span>
-              </label>
-            </div>` : ''}
           </div>
         </div>
       </div>
@@ -2912,7 +2910,7 @@ function renderResults(){
   const unassignedItemsCount = totalItemsCount - assignedItemsCount;
 
   let warnings = '';
-  if(unassigned > 0.01){
+  if(unassigned > 0.009){
     warnings += `<div class="warn-banner">Не розподілено на суму ${fmtMoney(unassigned)} — ${unassignedItemsCount} ${pluralPozytsiya(unassignedItemsCount)} все ще без покупця.</div>`;
   }
   if(manualMismatch){
