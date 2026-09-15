@@ -729,22 +729,32 @@
      close" mechanism has nothing to act on and never fights our
      transitions: closing plays exactly the same as opening. The `+`
      selector below just watches the details' `open` attribute.
-     The content itself fades and slides between two states — hidden
+     max-height/overflow (animated from JS — see animateQuickActionsToggle
+     in the script below) is the deliberately boring choice here: the
+     tempting CSS-only alternative, transitioning grid-template-rows
+     between 0fr and 1fr, doesn't reliably animate — and on a number of
+     iOS Safari versions doesn't apply at all — when it's triggered purely
+     by an attribute change rather than a class change, which is exactly
+     how this panel used to simply fail to open on iPhone while working
+     fine in Firefox/Chrome. The plain max-height:none rule below is the
+     resting "open" state (so later content changes while it stays open,
+     e.g. toggling Вибірково, are never clipped by a stale measurement);
+     only the animated open/close moment itself needs JS, to supply the
+     concrete pixel value a transition can actually interpolate from/to
+     (browsers can't animate to or from max-height:none).
+     The inner content fades and slides between two states — hidden
      (opacity 0, shifted up 20px) and visible (opacity 1, at rest) —
      using the same 0.5s transition both ways. Opening naturally plays
      that as "drops down into place while fading in"; closing is simply
      the same transition run in reverse, i.e. "lifts up and fades out"
-     (movement bottom-to-top). The row's own height transition is kept
-     in sync at the same 0.5s so it doesn't finish collapsing/growing
-     before the slide+fade has had time to complete. */
+     (movement bottom-to-top). */
   .quick-actions-body{
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows .4s ease .1s;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .38s cubic-bezier(.4,0,.2,1);
   }
   .qa-toggle[open] + .quick-actions-body{
-    grid-template-rows: 1fr;
-    transition: grid-template-rows .3s ease;
+    max-height: none;
   }
   .quick-actions-body-inner{
     overflow: hidden;
@@ -1266,6 +1276,33 @@ let quickAssignMode = null;
 // loaded/opened/cleared, same call sites as resetQuickAssignMode() below.
 let quickActionsExpanded = false;
 function resetQuickAssignMode(){ quickAssignMode = null; quickActionsExpanded = false; }
+// Fires on every native <details> toggle of the "Швидкі дії" panel (both
+// open and close). The matching CSS just has a plain max-height:0/none
+// pair — see the .quick-actions-body rules — because browsers can't
+// transition to or from max-height:none; this supplies the one concrete
+// pixel value the transition actually needs at the moment it starts, then
+// gets out of the way again so later content changes while it stays open
+// (e.g. toggling Вибірково) are never clipped by a stale measurement.
+function animateQuickActionsToggle(detailsEl){
+  quickActionsExpanded = detailsEl.open;
+  const body = detailsEl.nextElementSibling;
+  if(!body || !body.classList.contains('quick-actions-body')) return;
+  if(detailsEl.open){
+    body.style.maxHeight = body.scrollHeight + 'px';
+    body.addEventListener('transitionend', function onEnd(e){
+      if(e.propertyName!=='max-height') return;
+      body.removeEventListener('transitionend', onEnd);
+      if(detailsEl.open) body.style.maxHeight = ''; // hand back to the plain CSS rest-state rule
+    });
+  }else{
+    // Pin the current rendered height as a concrete px value first — a
+    // transition can't start from the 'none' the open rest-state rule may
+    // currently be supplying — then collapse it on the next frame.
+    body.style.maxHeight = body.scrollHeight + 'px';
+    body.offsetHeight; // force reflow so the line above isn't itself animated
+    requestAnimationFrame(()=>{ body.style.maxHeight = '0px'; });
+  }
+}
 function startEditManualItem(itemId){
   editingManualItemId = itemId;
   renderReceipt();
@@ -1396,6 +1433,15 @@ function parseRqSchema(doc, fileName){
     .filter(d => !d.getAttribute('NI') && !d.querySelector('NI'))
     .reduce((a,d) => a + parseInt(d.getAttribute('SM')||'0',10)/100, 0));
   const discountAutoDistributed = unattributedDiscount > 0.009 && items.length > 0;
+  // "Змінити знижки" only makes sense when our proportional split is a guess,
+  // not a fact: if the receipt already itemized its own per-position discounts
+  // (matched via <D NI="..."> above, before this unattributed remainder is
+  // folded in), those figures are authoritative and redistributing them would
+  // contradict the source data. This schema has no receipt-level discount
+  // percentage field at all, so that half of the "already deterministic"
+  // check (see parseCheckSchema) never applies here.
+  const hasExplicitItemDiscounts = items.some(it => it.discount > 0.009);
+  const discountEditable = discountAutoDistributed && !hasExplicitItemDiscounts;
   if(discountAutoDistributed){
     const discountBase = items.reduce((a,i)=>a+i.grossSum,0);
     const discountParts = splitProportionally(unattributedDiscount, items.map(i=>i.grossSum), discountBase);
@@ -1430,8 +1476,11 @@ function parseRqSchema(doc, fileName){
   // Snapshot the app's own computed discount per item — "Змінити знижки" in
   // Section 3 restores exactly this after manual edits, rather than
   // re-running the proportional split (which isn't guaranteed to break
-  // rounding ties the same way twice).
-  items.forEach(item => { item.autoDiscount = item.discount; });
+  // rounding ties the same way twice). displayDiscount is a separate,
+  // slower-moving copy that Section 2's printed receipt actually reads —
+  // see setItemDiscount() for why it only catches up to `discount` once a
+  // full redistribution balances back to this same total.
+  items.forEach(item => { item.autoDiscount = item.discount; item.displayDiscount = item.discount; });
 
   // <E RND="1"> is the PRRO's own explicit flag that cash-rounding (to the nearest
   // 0.10 UAH, per NBU rules) was applied to this sale — a more reliable signal than
@@ -1558,7 +1607,7 @@ function parseRqSchema(doc, fileName){
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod,
     fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, payments, taxGroups, verifyUrl,
-    headerLines, paidBy: [], roundingAdjustment, discountAutoDistributed
+    headerLines, paidBy: [], roundingAdjustment, discountAutoDistributed, discountEditable
   };
 }
 
@@ -1604,6 +1653,16 @@ function parseCheckSchema(doc, fileName){
   // attached to individual rows, allocate the missing part proportionally.
   let globalDiscount = round2(Math.max(0, receiptDiscount - itemDiscountTotal));
   const discountAutoDistributed = globalDiscount > 0.009 && items.length > 0;
+  // "Змінити знижки" only makes sense when our proportional split is a guess,
+  // not a fact. It isn't a guess when either: the rows already came with
+  // their own DISCOUNTSUM per position (itemDiscountTotal, computed above
+  // before this fold-in, is already authoritative), or the receipt states a
+  // flat DISCOUNTPERCENT — at that point every item's share is just
+  // qty×price×percent, fully determined, and "redistributing" it would only
+  // fight the one deterministic answer.
+  const hasExplicitItemDiscounts = itemDiscountTotal > 0.009;
+  const hasExplicitPercent = receiptDiscountPercent > 0;
+  const discountEditable = discountAutoDistributed && !hasExplicitItemDiscounts && !hasExplicitPercent;
   if(discountAutoDistributed){
     const baseTotal = items.reduce((a,i)=>a+i.grossSum,0);
     const referenceGross = grossTotal > 0 ? grossTotal : round2(totalSum + receiptDiscount);
@@ -1629,8 +1688,11 @@ function parseCheckSchema(doc, fileName){
   // Snapshot the app's own computed discount per item — "Змінити знижки" in
   // Section 3 restores exactly this after manual edits, rather than
   // re-running the proportional split (which isn't guaranteed to break
-  // rounding ties the same way twice).
-  items.forEach(item => { item.autoDiscount = item.discount; });
+  // rounding ties the same way twice). displayDiscount is a separate,
+  // slower-moving copy that Section 2's printed receipt actually reads —
+  // see setItemDiscount() for why it only catches up to `discount` once a
+  // full redistribution balances back to this same total.
+  items.forEach(item => { item.autoDiscount = item.discount; item.displayDiscount = item.discount; });
 
   const orderDate = textOf(head,'ORDERDATE'); // DDMMYYYY
   const orderTime = textOf(head,'ORDERTIME'); // HHMMSS
@@ -1745,11 +1807,23 @@ function parseCheckSchema(doc, fileName){
     fn, tn, tnLabel, zn, docNumber, shiftSerial:'', payment, payments, taxGroups, verifyUrl,
     discountPercent: receiptDiscountPercent,
     ipn, orgName, pointName, pointAddr, cashier, cashDeskNum, headerLines,
-    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz, paidBy: [], roundingAdjustment: 0, discountAutoDistributed
+    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz, paidBy: [], roundingAdjustment: 0, discountAutoDistributed, discountEditable
   };
 }
 
 /* ---------- RECEIPT + ASSIGNMENT RENDERING ---------- */
+// Section 2 (the printed receipt) reads displayDiscount rather than the
+// live `discount` field Section 3 edits — see setItemDiscount() for why it
+// only catches up once a full redistribution balances back to the
+// receipt's one fixed discount total. These two helpers are what Section
+// 2's row template actually calls, so that lag lives in one place instead
+// of being re-derived at every call site.
+function receiptDisplayDiscount(it){
+  return it.displayDiscount!=null ? it.displayDiscount : (it.discount||0);
+}
+function receiptDisplaySum(it){
+  return it.grossSum!=null ? round2(it.grossSum - receiptDisplayDiscount(it)) : it.sum;
+}
 function renderReceipt(){
   const el = document.getElementById('receiptSection');
   const assignEl = document.getElementById('assignSection');
@@ -1807,8 +1881,8 @@ function renderReceipt(){
   ) : r.items.map(it=>`
     <div class="rline">
       <span class="r-name">${escapeHtml(it.name)}</span>
-      <span class="r-qty">${fmtQty(it.qty)} × ${fmtMoneyPlain(it.price)}${it.discount>0?`<br><span class="r-disc">знижка ${fmtMoneyPlain(it.discount)}</span>`:''}</span>
-      <span class="r-sum">${fmtMoneyPlain(it.sum)}${itemTaxGroupLetter(it)?` <span class="r-tax-group">${escapeHtml(itemTaxGroupLetter(it))}</span>`:''}</span>
+      <span class="r-qty">${fmtQty(it.qty)} × ${fmtMoneyPlain(it.price)}${receiptDisplayDiscount(it)>0?`<br><span class="r-disc">знижка ${fmtMoneyPlain(receiptDisplayDiscount(it))}</span>`:''}</span>
+      <span class="r-sum">${fmtMoneyPlain(receiptDisplaySum(it))}${itemTaxGroupLetter(it)?` <span class="r-tax-group">${escapeHtml(itemTaxGroupLetter(it))}</span>`:''}</span>
     </div>
   `).join('') + (r.roundingAdjustment ? `
     <div class="rline">
@@ -1818,10 +1892,33 @@ function renderReceipt(){
     </div>
   ` : '');
 
-  const totalDiscount = round2(r.items.reduce((a,it)=>a+(it.discount||0),0));
+  // Both figures below are deliberately NOT derived from the live per-item
+  // `discount`/`sum` fields Section 3 edits, so neither one flickers while a
+  // redistribution is mid-edit there:
+  // - totalDiscount uses displayDiscount, the last *complete* redistribution
+  //   (see receiptDisplayDiscount / setItemDiscount) — this is the fixed,
+  //   already-decided discount for the whole receipt, not a running total.
+  // - grossSumTotal sums each item's own grossSum (qty×price before any
+  //   discount), which is set once at parse time and never touched again —
+  //   it is NOT r.totalSum+totalDiscount, which would drift with every
+  //   keystroke in Section 3 for exactly the same reason.
+  const totalDiscount = round2(r.items.reduce((a,it)=>a+receiptDisplayDiscount(it),0));
+  const grossSumTotal = round2(r.items.reduce((a,it)=>a+(it.grossSum!=null ? it.grossSum : (it.sum+(it.discount||0))),0));
   const discountLabel = '<span style="color:var(--muted);">В т.ч.</span> знижка' + ((r.discountPercent!=null && Number(r.discountPercent)>0)
     ? ` (${Number(r.discountPercent).toFixed(2).replace(/\.00$/, '')}%)`
     : '');
+  // Status line next to the "Змінити знижки" switch: compares the LIVE
+  // per-item discounts being typed into Section 3 right now against the
+  // receipt's one fixed total (the original autoDiscount snapshot) — not
+  // against each other. This is only ever shown while manualDiscountEdit is
+  // on; the automatic split is complete by definition, so there's nothing
+  // to report otherwise.
+  const discountDistributionTarget = round2(r.items.reduce((a,it)=>a+(it.autoDiscount||0),0));
+  const discountDistributionLive = round2(r.items.reduce((a,it)=>a+(it.discount||0),0));
+  const discountDistributionDiff = round2(discountDistributionTarget - discountDistributionLive);
+  const discountDistributionMsg = Math.abs(discountDistributionDiff) < 0.005
+    ? `<div class="remainder ok">Знижку розподілено повністю ✓</div>`
+    : `<div class="remainder bad">${discountDistributionDiff>0 ? `Залишилось розподілити: ${fmtMoney(discountDistributionDiff)}` : `Перевищено на: ${fmtMoney(Math.abs(discountDistributionDiff))}`}</div>`;
 
   const assignRows = r.items.map(it=>renderAssignRow(it)).join('');
   const quickBuyerChips = state.buyers.map(b=>{
@@ -1854,7 +1951,7 @@ function renderReceipt(){
           ${lines}
           <div class="receipt-total"><span>РАЗОМ</span><span>${fmtMoney(r.totalSum)}</span></div>
           ${totalDiscount>0 ? `<div class="rline" style="margin-top:-15px;border-bottom:none;"><span class="r-name r-disc" style="font-weight:500;font-size:0.82rem;">${discountLabel}</span><span class="r-sum r-disc" style="font-weight:500;font-size:0.82rem;">${fmtMoney(totalDiscount)}</span></div>` : ''}
-          ${totalDiscount>0 ? `<div class="rline" style="margin-top:-15px;border-bottom:none;"><span class="r-name" style="font-weight:500;font-size:0.78rem;color:var(--muted);">Сума до знижки</span><span class="r-sum" style="font-weight:500;font-size:0.78rem;color:var(--muted);">${fmtMoney(round2(r.totalSum+totalDiscount))}</span></div>` : ''}
+          ${totalDiscount>0 ? `<div class="rline" style="margin-top:-15px;border-bottom:none;"><span class="r-name" style="font-weight:500;font-size:0.78rem;color:var(--muted);">Сума до знижки</span><span class="r-sum" style="font-weight:500;font-size:0.78rem;color:var(--muted);">${fmtMoney(grossSumTotal)}</span></div>` : ''}
         </div>
         <div class="receipt-tear"></div>
       </div>
@@ -1872,7 +1969,7 @@ function renderReceipt(){
       </div>
       <div class="section-kicker" style="margin:0 0 9px;">Чиї це покупки:</div>
       <div class="buyer-detail quick-actions-detail">
-        <details class="qa-toggle" ${quickActionsExpanded?'open':''} ontoggle="quickActionsExpanded=this.open">
+        <details class="qa-toggle" ${quickActionsExpanded?'open':''} ontoggle="animateQuickActionsToggle(this)">
           <summary class="subpanel-title clickable">
             Швидкі дії<svg class="disclosure-arrow" viewBox="0 0 8 14"><path d="M1 1L7 7L1 13"/></svg>
           </summary>
@@ -1886,7 +1983,7 @@ function renderReceipt(){
                 <button type="button" class="${quickAssignMode==='selective'?'active':''}" onclick="selectQuickAssignSelective()">Вибірково</button>
               </div>
               <span class="icon-chip" onclick="resetAllAssignments()" aria-label="Скинути">✕<span class="tooltip">Скинути</span></span>
-	            ${r.discountAutoDistributed ? `<span style="font-size:0.85rem;color:var(--ink-soft);">Змінити знижки</span>
+	            ${r.discountEditable ? `<span style="font-size:0.85rem;color:var(--ink-soft);">Змінити знижки</span>
 	              <label class="ios-switch">
 	                <input type="checkbox" ${r.manualDiscountEdit?'checked':''} onchange="toggleManualDiscountEdit()">
 	                <span class="ios-switch-track"></span>
@@ -1895,6 +1992,7 @@ function renderReceipt(){
 	                <span class="ios-switch-knob"></span>
 	              </label>` : ''}
             </div>
+            ${r.manualDiscountEdit ? discountDistributionMsg : ''}
             ${quickAssignMode==='selective' ? `<div class="row" style="margin-top:12px;">${quickBuyerChips}</div>` : ''}
           </div>
         </div>
@@ -1920,6 +2018,7 @@ function renderReceipt(){
     }
   }
   syncModeToggleHighlights();
+  syncIosSwitch();
 }
 // Every mode-toggle (the "Швидкі дії" На всіх/Вибірково switch, and each
 // item's Порівну/Частками/% вручну/₴ вручну switch) gets its innerHTML fully
@@ -1963,6 +2062,42 @@ function syncModeToggleHighlights(){
     }
     modeToggleState[id] = next;
   });
+}
+// The single "Змінити знижки" switch has the exact same problem as the
+// mode-toggle pills above: renderReceipt() rebuilds it from scratch on
+// every click, so the knob's CSS transition has no "before" state on this
+// brand-new element to animate from and would otherwise just snap straight
+// to its final position. Only one instance ever exists at a time (unlike
+// the keyed map the segmented controls above need), so a single remembered
+// flag is enough: replay the flip from whatever it last was to whatever it
+// now is, the same snap-jump-release choreography as above.
+let iosSwitchWasChecked = null;
+function syncIosSwitch(){
+  const label = document.querySelector('.ios-switch');
+  if(!label){ iosSwitchWasChecked = null; return; }
+  const input = label.querySelector('input');
+  const parts = {
+    knob: label.querySelector('.ios-switch-knob'),
+    track: label.querySelector('.ios-switch-track'),
+    on: label.querySelector('.ios-switch-mark-on'),
+    off: label.querySelector('.ios-switch-mark-off')
+  };
+  const isChecked = input.checked;
+  if(iosSwitchWasChecked!==null && iosSwitchWasChecked!==isChecked){
+    const from = iosSwitchWasChecked;
+    Object.values(parts).forEach(el=>{ if(el) el.style.transition = 'none'; });
+    if(parts.knob) parts.knob.style.transform = from ? 'translateX(23px)' : 'translateX(0)';
+    if(parts.track) parts.track.style.background = from ? '#34c759' : '#5d5d5f';
+    if(parts.on) parts.on.style.opacity = from ? '1' : '0';
+    if(parts.off) parts.off.style.opacity = from ? '0' : '.9';
+    label.offsetHeight; // force reflow so the jump above isn't animated too
+    Object.values(parts).forEach(el=>{ if(el) el.style.transition = ''; });
+    if(parts.knob) parts.knob.style.transform = '';
+    if(parts.track) parts.track.style.background = '';
+    if(parts.on) parts.on.style.opacity = '';
+    if(parts.off) parts.off.style.opacity = '';
+  }
+  iosSwitchWasChecked = isChecked;
 }
 
 const UK_ALPHABET = ['А','Б','В','Г','Ґ','Д','Е','Є','Ж','З','И','І','Ї','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Х','Ц','Ч','Ш','Щ','Ь','Ю','Я'];
@@ -2458,9 +2593,10 @@ function resetAllAssignments(){
 // run isn't guaranteed to land on the exact same numbers if rounding had to
 // break a tie, and the person's manual edits should cleanly disappear back
 // to the one true "automatic" state, not a slightly different recompute of
-// it. Section 2's receipt view reads the same state.receipt.items the input
-// fields below write to, so it picks up either direction automatically on
-// the next render — no separate sync step needed.
+// it. displayDiscount (what Section 2's receipt view actually reads) is
+// reset right alongside discount/sum, so switching off always lands Section
+// 2 back on the automatic split too — never on whatever in-progress,
+// possibly-incomplete redistribution was showing in Section 3 a moment ago.
 function toggleManualDiscountEdit(){
   const r = state.receipt;
   if(!r) return;
@@ -2469,6 +2605,7 @@ function toggleManualDiscountEdit(){
     r.items.forEach(item=>{
       item.discount = item.autoDiscount;
       item.sum = round2(item.grossSum - item.discount);
+      item.displayDiscount = item.autoDiscount;
     });
   }
   renderReceipt();
@@ -2487,8 +2624,24 @@ function setItemDiscount(itemId, value){
   if(discount > item.grossSum) discount = item.grossSum;
   item.discount = round2(discount);
   item.sum = round2(item.grossSum - item.discount);
+  syncDiscountDisplayIfComplete(r);
   renderReceipt();
   renderResults();
+}
+// Section 2's printed receipt shows displayDiscount, not the live `discount`
+// values being typed into Section 3 above — it only catches up once every
+// item's discount, taken together, foots exactly back to the receipt's one
+// fixed total (the sum of the original autoDiscount snapshot, which never
+// itself changes). Below that threshold this is a no-op, so Section 2 just
+// keeps showing whatever the last complete redistribution was — the total
+// discount is fixed and shared across all items, so a half-finished split
+// is not yet a real answer for any of them individually.
+function syncDiscountDisplayIfComplete(r){
+  const target = round2(r.items.reduce((a,it)=>a+(it.autoDiscount||0),0));
+  const live = round2(r.items.reduce((a,it)=>a+(it.discount||0),0));
+  if(Math.abs(target-live) < 0.005){
+    r.items.forEach(it=>{ it.displayDiscount = it.discount; });
+  }
 }
 // Bulk action: this buyer is added to EVERY item if they're not already on
 // ALL of them, or removed from EVERY item if they already are. Other
