@@ -793,9 +793,21 @@
     margin-bottom: 8px;
   }
   .subpanel-row-label{color:var(--muted);font-size:0.78rem;margin-bottom:8px;}
-  .quick-equal-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  /* quick-equal-row is the outer row: on wide screens its two direct
+     children — the left group (На всіх/Вибірково/Скинути, plus the buyer
+     chips when "Вибірково" is picked) and the discount switch — sit
+     pinned to opposite edges via space-between. When there isn't room for
+     both on one line, the discount switch (flex-shrink:0 below) simply
+     drops to its own line under the left group, same as before. */
+  .quick-equal-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .quick-actions-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1 1 auto;min-width:0;}
+  /* Forces the buyer-chip row onto its own line within .quick-actions-left
+     — it's grouped with На всіх/Вибірково/Скинути rather than sitting with
+     the discount switch, but with potentially many names it still needs
+     the full row's width rather than trying to squeeze in beside them. */
+  .quick-actions-left .quick-chips-row{flex-basis:100%;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
   /* .quick-equal-row wraps its direct children independently when the row
-     runs out of width — so the "Змінити знижки" label and its switch, being
+     runs out of width — so the "Перерозподіл знижок" label and its switch, being
      two separate children, could wrap apart from each other (label on one
      line, switch on the next). Grouping them into one flex item here makes
      them wrap together as a single unit instead. */
@@ -1438,7 +1450,7 @@ function parseRqSchema(doc, fileName){
     .filter(d => !d.getAttribute('NI') && !d.querySelector('NI'))
     .reduce((a,d) => a + parseInt(d.getAttribute('SM')||'0',10)/100, 0));
   const discountAutoDistributed = unattributedDiscount > 0.009 && items.length > 0;
-  // "Змінити знижки" only makes sense when our proportional split is a guess,
+  // "Перерозподіл знижок" only makes sense when our proportional split is a guess,
   // not a fact: if the receipt already itemized its own per-position discounts
   // (matched via <D NI="..."> above, before this unattributed remainder is
   // folded in), those figures are authoritative and redistributing them would
@@ -1478,7 +1490,7 @@ function parseRqSchema(doc, fileName){
       last.discount = round2(last.grossSum - last.sum);
     }
   }
-  // Snapshot the app's own computed discount per item — "Змінити знижки" in
+  // Snapshot the app's own computed discount per item — "Перерозподіл знижок" in
   // Section 3 restores exactly this after manual edits, rather than
   // re-running the proportional split (which isn't guaranteed to break
   // rounding ties the same way twice). displayDiscount is a separate,
@@ -1658,7 +1670,7 @@ function parseCheckSchema(doc, fileName){
   // attached to individual rows, allocate the missing part proportionally.
   let globalDiscount = round2(Math.max(0, receiptDiscount - itemDiscountTotal));
   const discountAutoDistributed = globalDiscount > 0.009 && items.length > 0;
-  // "Змінити знижки" only makes sense when our proportional split is a guess,
+  // "Перерозподіл знижок" only makes sense when our proportional split is a guess,
   // not a fact. It isn't a guess when either: the rows already came with
   // their own DISCOUNTSUM per position (itemDiscountTotal, computed above
   // before this fold-in, is already authoritative), or the receipt states a
@@ -1690,7 +1702,7 @@ function parseCheckSchema(doc, fileName){
       last.discount = round2(last.grossSum - last.sum);
     }
   }
-  // Snapshot the app's own computed discount per item — "Змінити знижки" in
+  // Snapshot the app's own computed discount per item — "Перерозподіл знижок" in
   // Section 3 restores exactly this after manual edits, rather than
   // re-running the proportional split (which isn't guaranteed to break
   // rounding ties the same way twice). displayDiscount is a separate,
@@ -1919,9 +1931,9 @@ function renderReceipt(){
   const totalDiscount = round2(r.items.reduce((a,it)=>a+receiptDisplayDiscount(it),0));
   const grossSumTotal = round2(r.items.reduce((a,it)=>a+(it.grossSum!=null ? it.grossSum : (it.sum+(it.discount||0))),0));
   const discountLabel = '<span style="color:var(--muted);">В т.ч.</span> знижка' + ((r.discountPercent!=null && Number(r.discountPercent)>0)
-    ? ` (${Number(r.discountPercent).toFixed(2).replace(/\.00$/, '')}%)`
+    ? ` (${Number(r.discountPercent).toFixed(2).replace(/\.00$/, '').replace('.', ',')}%)`
     : '');
-  // Status line next to the "Змінити знижки" switch: compares the LIVE
+  // Status line next to the "Перерозподіл знижок" switch: compares the LIVE
   // per-item discounts being typed into Section 3 right now against the
   // receipt's one fixed total (the original autoDiscount snapshot) — not
   // against each other. This is only ever shown while manualDiscountEdit is
@@ -1991,14 +2003,17 @@ function renderReceipt(){
         <div class="quick-actions-body">
           <div class="quick-actions-body-inner">
             <div class="quick-equal-row">
+              <div class="quick-actions-left">
               <div class="mode-toggle" data-toggle-id="quickAssign">
                 <span class="mode-toggle-highlight"></span>
                 <button type="button" class="${quickAssignMode==='all'?'active':''}" onclick="selectQuickAssignAll()">На всіх</button>
                 <button type="button" class="${quickAssignMode==='selective'?'active':''}" onclick="selectQuickAssignSelective()">Вибірково</button>
               </div>
               <span class="icon-chip" onclick="resetAllAssignments()" aria-label="Скинути">✕<span class="tooltip">Скинути</span></span>
+              ${quickAssignMode==='selective' ? `<div class="quick-chips-row">${quickBuyerChips}</div>` : ''}
+              </div>
 	            ${r.discountEditable ? `<div class="discount-toggle-group">
-	              <span style="font-size:0.85rem;color:var(--ink-soft);">Змінити знижки</span>
+	              <span style="font-size:0.85rem;color:var(--ink-soft);">Перерозподіл знижок</span>
 	              <label class="ios-switch">
 	                <input type="checkbox" ${r.manualDiscountEdit?'checked':''} onchange="toggleManualDiscountEdit()">
 	                <span class="ios-switch-track"></span>
@@ -2009,7 +2024,6 @@ function renderReceipt(){
 	            </div>` : ''}
             </div>
             ${r.manualDiscountEdit ? discountDistributionMsg : ''}
-            ${quickAssignMode==='selective' ? `<div class="row" style="margin-top:12px;">${quickBuyerChips}</div>` : ''}
           </div>
         </div>
       </div>
@@ -2088,7 +2102,7 @@ function syncModeToggleHighlights(){
     modeToggleState[id] = next;
   });
 }
-// The single "Змінити знижки" switch has the exact same problem as the
+// The single "Перерозподіл знижок" switch has the exact same problem as the
 // mode-toggle pills above: renderReceipt() rebuilds it from scratch on
 // every click, so the knob's CSS transition has no "before" state on this
 // brand-new element to animate from and would otherwise just snap straight
@@ -2245,7 +2259,7 @@ function renderReceiptDetails(r){
     <div class="detail-subhead">Податкові групи</div>
     ${visibleTaxGroups.map(tx=>`
       <div class="detail-row">
-        <span class="detail-label">${escapeHtml(tx.label)}${tx.rate?(' · '+escapeHtml(tx.rate)+'%'):''}</span>
+        <span class="detail-label">${escapeHtml(tx.label)}${tx.rate?(' · '+escapeHtml(tx.rate.replace('.', ','))+'%'):''}</span>
         <span class="detail-val">${fmtMoney(tx.sum)}</span>
       </div>
     `).join('')}
@@ -2336,6 +2350,11 @@ function setPaidAmount(buyerId, value){
   if(!r) return;
   const p = r.paidBy.find(x=>x.buyerId===buyerId);
   if(!p) return;
+  // "," and "." both mean "decimal point" to a person typing on a phone;
+  // normalized once here so every parseFloat(p.amount) downstream — the
+  // balancing logic below, the allocated-total check, renderResults() —
+  // can keep assuming a plain, parseable string.
+  value = String(value).replace(',', '.');
   p.amount = value;
 
   // With exactly two payers there's only one way to split the total, so the
@@ -2405,10 +2424,10 @@ function renderPaidByBlock(r){
       const fieldId = `pv_${p.buyerId}`;
       const isFocused = active && active.id===fieldId;
       let val = p.amount ?? '';
-      if(val!=='' && !isFocused){ const num=parseFloat(val); if(!isNaN(num)) val = num.toFixed(2); }
+      if(val!=='' && !isFocused){ const num=parseFloat(val); if(!isNaN(num)) val = num.toFixed(2).replace('.', ','); }
       return `<div class="manual-row">
         <span class="label">${escapeHtml(b?b.name:'?')}</span>
-        <input type="number" step="0.01" value="${val}" id="${fieldId}" onfocus="setLastFocusedPayer('${p.buyerId}')" oninput="setPaidAmount('${p.buyerId}',this.value)"> ₴
+        <input type="text" inputmode="decimal" style="width:92px;" value="${escapeHtml(String(val))}" id="${fieldId}" onfocus="setLastFocusedPayer('${p.buyerId}')" oninput="setPaidAmount('${p.buyerId}',this.value)"> ₴
       </div>`;
     }).join('');
 
@@ -2489,7 +2508,7 @@ function renderAssignRow(it){
         const isFocused = document.activeElement && document.activeElement.id===fieldId;
         if(it.manualType==='amount' && val!=='' && !isFocused){
           const num = parseFloat(val);
-          if(!isNaN(num)) val = num.toFixed(2);
+          if(!isNaN(num)) val = num.toFixed(2).replace('.', ',');
         }
         const amtHint = it.manualType==='percent'
           ? ` <span style="color:var(--muted);">= ${fmtMoney(percentAlloc[bid]||0)}</span>`
@@ -2507,7 +2526,7 @@ function renderAssignRow(it){
       if(ok){
         modeUi += `<div class="remainder ok">Розподілено повністю ✓</div>`;
       }else{
-        const remainderDisplay = it.manualType==='percent' ? (remainder.toFixed(2)+'%') : fmtMoney(remainder);
+        const remainderDisplay = it.manualType==='percent' ? (remainder.toFixed(2).replace('.', ',')+'%') : fmtMoney(remainder);
         const targetBid = (it.lastFocusedBuyer && it.buyerIds.includes(it.lastFocusedBuyer)) ? it.lastFocusedBuyer : it.buyerIds[0];
         const current = parseFloat(it.manualValues[targetBid]) || 0;
         const clickable = (current + remainder) >= -0.01;
@@ -2527,7 +2546,7 @@ function renderAssignRow(it){
       <div class="assign-item-name">
         <span class="nm">${escapeHtml(it.name)}</span>
         <span class="sub">${fmtQty(it.qty)} × ${fmtMoney(it.price)} = <strong>${fmtMoney(it.sum)}</strong></span>
-        ${state.receipt.manualDiscountEdit ? `<span class="sub r-disc">знижка <input type="text" inputmode="decimal" class="discount-edit-input" data-item-id="${it.id}" value="${escapeHtml(discountInputRawItemId===it.id && discountInputRawValue!=null ? discountInputRawValue : String(it.discount))}" onclick="event.stopPropagation()" oninput="setItemDiscount('${it.id}', this.value)" onblur="clearDiscountInputRaw()"> ₴</span>` : (it.discount>0 ? `<span class="sub r-disc">знижка ${fmtMoney(it.discount)}</span>` : '')}
+        ${state.receipt.manualDiscountEdit ? `<span class="sub r-disc">знижка <input type="text" inputmode="decimal" class="discount-edit-input" data-item-id="${it.id}" value="${escapeHtml(discountInputRawItemId===it.id && discountInputRawValue!=null ? discountInputRawValue : String(it.discount).replace('.', ','))}" onclick="event.stopPropagation()" oninput="setItemDiscount('${it.id}', this.value)" onblur="clearDiscountInputRaw()"> ₴</span>` : (it.discount>0 ? `<span class="sub r-disc">знижка ${fmtMoney(it.discount)}</span>` : '')}
       </div>
       <div class="assign-controls">
         <div class="row">${chips}</div>
@@ -2612,7 +2631,7 @@ function resetAllAssignments(){
   renderReceipt();
   renderResults();
 }
-// Flips the "Змінити знижки" switch. Turning it OFF restores every item's
+// Flips the "Перерозподіл знижок" switch. Turning it OFF restores every item's
 // discount to the app's own proportional split (the autoDiscount snapshot
 // taken at parse time) rather than re-running that split fresh — a second
 // run isn't guaranteed to land on the exact same numbers if rounding had to
@@ -2636,7 +2655,7 @@ function toggleManualDiscountEdit(){
   renderReceipt();
   renderResults();
 }
-// Only reachable while "Змінити знижки" is on. Clamped to the item's own
+// Only reachable while "Перерозподіл знижок" is on. Clamped to the item's own
 // gross value in both directions — a discount can't be negative or erase
 // more than the item was worth before it.
 function setItemDiscount(itemId, value){
@@ -2870,7 +2889,7 @@ function buyerItemBreakdown(bid){
           : 'порівну';
       }else if(it.manualType==='percent'){
         const pct = parseFloat(it.manualValues[bid]) || 0;
-        const pctStr = Number.isInteger(pct) ? pct : pct.toFixed(2).replace(/\.?0+$/,'');
+        const pctStr = Number.isInteger(pct) ? pct : pct.toFixed(2).replace(/\.?0+$/,'').replace('.', ',');
         shareLabel = `${pctStr}%`;
       }else if(it.manualType==='fraction'){
         const share = parseFloat(it.manualValues[bid]) || 0;
