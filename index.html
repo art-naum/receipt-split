@@ -729,19 +729,33 @@
      close" mechanism has nothing to act on and never fights our
      transitions: closing plays exactly the same as opening. The `+`
      selector below just watches the details' `open` attribute.
-     max-height/overflow (animated from JS — see animateQuickActionsToggle
-     in the script below) is the deliberately boring choice here: the
-     tempting CSS-only alternative, transitioning grid-template-rows
-     between 0fr and 1fr, doesn't reliably animate — and on a number of
-     iOS Safari versions doesn't apply at all — when it's triggered purely
-     by an attribute change rather than a class change, which is exactly
-     how this panel used to simply fail to open on iPhone while working
-     fine in Firefox/Chrome. The plain max-height:none rule below is the
-     resting "open" state (so later content changes while it stays open,
-     e.g. toggling Вибірково, are never clipped by a stale measurement);
-     only the animated open/close moment itself needs JS, to supply the
-     concrete pixel value a transition can actually interpolate from/to
-     (browsers can't animate to or from max-height:none).
+     Back on grid-template-rows (0fr closed / 1fr open) per request, after
+     digging into what could actually break it in Safari. Two concrete
+     things fixed here:
+     1) The closed and open rules used to declare DIFFERENT transition
+        durations (.4s with a .1s delay vs .3s with none) on the very same
+        property that the [open] change is also flipping. Browsers don't
+        agree on which of the two timings "wins" when both the animated
+        value and its own transition timing change in the same style
+        recalculation — a known cross-browser gray area — so this is now
+        one single transition declared once, not redeclared per state.
+     2) Added `contain:layout` on the inner wrapper below — documented
+        as needed specifically on Safari to avoid a flicker at the end of
+        this exact 0fr/1fr transition on retina displays.
+     One risk I could NOT cleanly remove: `.quick-actions-body-inner`
+     switches from overflow:hidden to overflow:visible on open (needed so
+     the "Скинути" tooltip isn't clipped) — and per the CSS Grid spec, a
+     grid item's *automatic minimum size* collapses to 0 only while its
+     overflow is non-visible; the instant that flips to visible (overflow
+     isn't animatable, so it flips the moment [open] is added, before the
+     fr value has transitioned anywhere), the row's floor becomes
+     content-based instead of 0. By my reading that would make opening
+     look like an instant pop rather than a smooth grow, not a dead
+     block — but I can't rule out a worse Safari-specific interaction
+     without testing on an actual device. If it still doesn't open
+     smoothly on iPhone after this, that switched overflow is my prime
+     remaining suspect, and the max-height version (driven from JS,
+     no fr-unit involved at all) is the fallback with no such risk.
      The inner content fades and slides between two states — hidden
      (opacity 0, shifted up 20px) and visible (opacity 1, at rest) —
      using the same 0.5s transition both ways. Opening naturally plays
@@ -749,16 +763,17 @@
      the same transition run in reverse, i.e. "lifts up and fades out"
      (movement bottom-to-top). */
   .quick-actions-body{
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height .38s cubic-bezier(.4,0,.2,1);
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .35s cubic-bezier(.4,0,.2,1);
   }
   .qa-toggle[open] + .quick-actions-body{
-    max-height: none;
+    grid-template-rows: 1fr;
   }
   .quick-actions-body-inner{
     overflow: hidden;
     min-height: 0;
+    contain: layout;
     opacity: 0;
     transform: translateY(-5px);
     transition: opacity .3s ease, margin .3s ease, padding .3s ease, transform .3s ease, border .3s ease;
@@ -779,6 +794,12 @@
   }
   .subpanel-row-label{color:var(--muted);font-size:0.78rem;margin-bottom:8px;}
   .quick-equal-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  /* .quick-equal-row wraps its direct children independently when the row
+     runs out of width — so the "Змінити знижки" label and its switch, being
+     two separate children, could wrap apart from each other (label on one
+     line, switch on the next). Grouping them into one flex item here makes
+     them wrap together as a single unit instead. */
+  .discount-toggle-group{display:flex;align-items:center;gap:8px;flex-shrink:0;white-space:nowrap;}
   .quick-equal-row .mode-toggle{margin-top:0;}
   .icon-chip{
     position:relative;
@@ -1276,33 +1297,6 @@ let quickAssignMode = null;
 // loaded/opened/cleared, same call sites as resetQuickAssignMode() below.
 let quickActionsExpanded = false;
 function resetQuickAssignMode(){ quickAssignMode = null; quickActionsExpanded = false; }
-// Fires on every native <details> toggle of the "Швидкі дії" panel (both
-// open and close). The matching CSS just has a plain max-height:0/none
-// pair — see the .quick-actions-body rules — because browsers can't
-// transition to or from max-height:none; this supplies the one concrete
-// pixel value the transition actually needs at the moment it starts, then
-// gets out of the way again so later content changes while it stays open
-// (e.g. toggling Вибірково) are never clipped by a stale measurement.
-function animateQuickActionsToggle(detailsEl){
-  quickActionsExpanded = detailsEl.open;
-  const body = detailsEl.nextElementSibling;
-  if(!body || !body.classList.contains('quick-actions-body')) return;
-  if(detailsEl.open){
-    body.style.maxHeight = body.scrollHeight + 'px';
-    body.addEventListener('transitionend', function onEnd(e){
-      if(e.propertyName!=='max-height') return;
-      body.removeEventListener('transitionend', onEnd);
-      if(detailsEl.open) body.style.maxHeight = ''; // hand back to the plain CSS rest-state rule
-    });
-  }else{
-    // Pin the current rendered height as a concrete px value first — a
-    // transition can't start from the 'none' the open rest-state rule may
-    // currently be supplying — then collapse it on the next frame.
-    body.style.maxHeight = body.scrollHeight + 'px';
-    body.offsetHeight; // force reflow so the line above isn't itself animated
-    requestAnimationFrame(()=>{ body.style.maxHeight = '0px'; });
-  }
-}
 function startEditManualItem(itemId){
   editingManualItemId = itemId;
   renderReceipt();
@@ -1969,7 +1963,7 @@ function renderReceipt(){
       </div>
       <div class="section-kicker" style="margin:0 0 9px;">Чиї це покупки:</div>
       <div class="buyer-detail quick-actions-detail">
-        <details class="qa-toggle" ${quickActionsExpanded?'open':''} ontoggle="animateQuickActionsToggle(this)">
+        <details class="qa-toggle" ${quickActionsExpanded?'open':''} ontoggle="quickActionsExpanded=this.open">
           <summary class="subpanel-title clickable">
             Швидкі дії<svg class="disclosure-arrow" viewBox="0 0 8 14"><path d="M1 1L7 7L1 13"/></svg>
           </summary>
@@ -1983,14 +1977,16 @@ function renderReceipt(){
                 <button type="button" class="${quickAssignMode==='selective'?'active':''}" onclick="selectQuickAssignSelective()">Вибірково</button>
               </div>
               <span class="icon-chip" onclick="resetAllAssignments()" aria-label="Скинути">✕<span class="tooltip">Скинути</span></span>
-	            ${r.discountEditable ? `<span style="font-size:0.85rem;color:var(--ink-soft);">Змінити знижки</span>
+	            ${r.discountEditable ? `<div class="discount-toggle-group">
+	              <span style="font-size:0.85rem;color:var(--ink-soft);">Змінити знижки</span>
 	              <label class="ios-switch">
 	                <input type="checkbox" ${r.manualDiscountEdit?'checked':''} onchange="toggleManualDiscountEdit()">
 	                <span class="ios-switch-track"></span>
 	                <span class="ios-switch-mark-on"></span>
 	                <span class="ios-switch-mark-off"></span>
 	                <span class="ios-switch-knob"></span>
-	              </label>` : ''}
+	              </label>
+	            </div>` : ''}
             </div>
             ${r.manualDiscountEdit ? discountDistributionMsg : ''}
             ${quickAssignMode==='selective' ? `<div class="row" style="margin-top:12px;">${quickBuyerChips}</div>` : ''}
