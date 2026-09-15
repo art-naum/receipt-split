@@ -1286,6 +1286,17 @@ function removeManualItem(itemId){
   renderResults();
 }
 let editingManualItemId = null;
+// While a discount field is mid-edit, the input shows exactly what the
+// person typed (e.g. "1." or "12,") instead of the rounded number in
+// item.discount — otherwise every keystroke's re-render would snap a
+// half-typed decimal back to its parsed form and the person could never
+// finish typing it. See setItemDiscount() / clearDiscountInputRaw().
+let discountInputRawItemId = null;
+let discountInputRawValue = null;
+function clearDiscountInputRaw(){
+  discountInputRawItemId = null;
+  discountInputRawValue = null;
+}
 // Tracks which option is picked in the "Швидкі дії" panel's segmented
 // control: null (nothing chosen yet) | 'all' | 'selective'. Purely a UI
 // choice, not derived from item data, so it stays put across re-renders
@@ -1819,6 +1830,15 @@ function receiptDisplaySum(it){
   return it.grossSum!=null ? round2(it.grossSum - receiptDisplayDiscount(it)) : it.sum;
 }
 function renderReceipt(){
+  // A full re-render replaces every node under #assignSection, including
+  // whatever discount field the person is mid-keystroke in — so without
+  // this, focus (and the cursor position within the field) would silently
+  // drop out after every single character typed. Captured before the
+  // rebuild below, put back right after assignEl.innerHTML is replaced.
+  const activeEl = document.activeElement;
+  const focusToRestore = (activeEl && activeEl.classList && activeEl.classList.contains('discount-edit-input') && activeEl.dataset.itemId)
+    ? { itemId: activeEl.dataset.itemId, start: activeEl.selectionStart, end: activeEl.selectionEnd }
+    : null;
   const el = document.getElementById('receiptSection');
   const assignEl = document.getElementById('assignSection');
 
@@ -1996,6 +2016,15 @@ function renderReceipt(){
       <div class="assign-block">${assignRows}</div>
     </div>
   `;
+  if(focusToRestore){
+    const newInput = assignEl.querySelector(`.discount-edit-input[data-item-id="${focusToRestore.itemId}"]`);
+    if(newInput){
+      newInput.focus();
+      if(focusToRestore.start!=null && focusToRestore.end!=null){
+        newInput.setSelectionRange(focusToRestore.start, focusToRestore.end);
+      }
+    }
+  }
 
   if(r.verifyUrl){
     const qrEl = document.getElementById('receiptQrCode');
@@ -2498,7 +2527,7 @@ function renderAssignRow(it){
       <div class="assign-item-name">
         <span class="nm">${escapeHtml(it.name)}</span>
         <span class="sub">${fmtQty(it.qty)} × ${fmtMoney(it.price)} = <strong>${fmtMoney(it.sum)}</strong></span>
-        ${state.receipt.manualDiscountEdit ? `<span class="sub r-disc">знижка <input type="number" class="discount-edit-input" step="0.01" min="0" max="${it.grossSum}" value="${it.discount}" onclick="event.stopPropagation()" oninput="setItemDiscount('${it.id}', this.value)"> ₴</span>` : (it.discount>0 ? `<span class="sub r-disc">знижка ${fmtMoney(it.discount)}</span>` : '')}
+        ${state.receipt.manualDiscountEdit ? `<span class="sub r-disc">знижка <input type="text" inputmode="decimal" class="discount-edit-input" data-item-id="${it.id}" value="${escapeHtml(discountInputRawItemId===it.id && discountInputRawValue!=null ? discountInputRawValue : String(it.discount))}" onclick="event.stopPropagation()" oninput="setItemDiscount('${it.id}', this.value)" onblur="clearDiscountInputRaw()"> ₴</span>` : (it.discount>0 ? `<span class="sub r-disc">знижка ${fmtMoney(it.discount)}</span>` : '')}
       </div>
       <div class="assign-controls">
         <div class="row">${chips}</div>
@@ -2615,7 +2644,14 @@ function setItemDiscount(itemId, value){
   if(!r) return;
   const item = r.items.find(i=>i.id===itemId);
   if(!item) return;
-  let discount = parseFloat(value);
+  // Remember exactly what's in the field right now — see the comment by
+  // discountInputRawItemId above for why the input can't just always show
+  // item.discount while this is going on.
+  discountInputRawItemId = itemId;
+  discountInputRawValue = value;
+  // "," and "." both mean "decimal point" to a person typing on a phone;
+  // only "." means anything to parseFloat.
+  let discount = parseFloat(String(value).replace(',', '.'));
   if(!(discount >= 0)) discount = 0;
   if(discount > item.grossSum) discount = item.grossSum;
   item.discount = round2(discount);
