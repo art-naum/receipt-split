@@ -1663,7 +1663,7 @@ function parseRqSchema(doc, fileName){
   return {
     fileName, items, totalSum, checkNo, dateStr, payMethod,
     fn, tn, tnLabel, zn, docNumber, shiftSerial, payment, payments, taxGroups, verifyUrl,
-    headerLines, paidBy: [], roundingAdjustment, discountAutoDistributed, discountEditable
+    headerLines, paidBy: [], roundingAdjustment, discountAutoDistributed, discountEditable, discountRedistributionSaved: false
   };
 }
 
@@ -1863,7 +1863,7 @@ function parseCheckSchema(doc, fileName){
     fn, tn, tnLabel, zn, docNumber, shiftSerial:'', payment, payments, taxGroups, verifyUrl,
     discountPercent: receiptDiscountPercent,
     ipn, orgName, pointName, pointAddr, cashier, cashDeskNum, headerLines,
-    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz, paidBy: [], roundingAdjustment: 0, discountAutoDistributed, discountEditable
+    recipientNm, recipientIpn, bankNm, bankRs, payerNm, phone, epz, paidBy: [], roundingAdjustment: 0, discountAutoDistributed, discountEditable, discountRedistributionSaved: false
   };
 }
 
@@ -2672,16 +2672,21 @@ function resetAllAssignments(){
   renderReceipt();
   renderResults();
 }
-// Flips the "Перерозподіл знижок" switch. Turning it OFF restores every item's
-// discount to the app's own proportional split (the autoDiscount snapshot
-// taken at parse time) rather than re-running that split fresh — a second
-// run isn't guaranteed to land on the exact same numbers if rounding had to
-// break a tie, and the person's manual edits should cleanly disappear back
-// to the one true "automatic" state, not a slightly different recompute of
-// it. displayDiscount (what Section 2's receipt view actually reads) is
-// reset right alongside discount/sum, so switching off always lands Section
-// 2 back on the automatic split too — never on whatever in-progress,
-// possibly-incomplete redistribution was showing in Section 3 a moment ago.
+// Flips the "Перерозподіл знижок" switch.
+// Turning it OFF applies the app's own automatic proportional split (the
+// autoDiscount snapshot taken at parse time) — displayDiscount is reset
+// right alongside discount/sum, so Section 2 always lands back on the
+// automatic split too, never on whatever in-progress, possibly-incomplete
+// redistribution was showing in Section 3 a moment ago. Whatever was
+// SAVED below (see syncDiscountDisplayIfComplete) is deliberately left
+// untouched here — turning off is not the same as forgetting.
+// Turning it back ON restores that saved redistribution, if there's one
+// to restore — the person's last *complete* manual split, not the
+// automatic one again. Only reachable while discountRedistributionSaved
+// is true, i.e. at least one redistribution has actually balanced back to
+// the fixed total at some point in this receipt's life; otherwise there's
+// nothing to restore and it's already sitting on the automatic split from
+// whenever it was last turned off (or from parsing, if never touched).
 function toggleManualDiscountEdit(){
   const r = state.receipt;
   if(!r) return;
@@ -2691,6 +2696,12 @@ function toggleManualDiscountEdit(){
       item.discount = item.autoDiscount;
       item.sum = round2(item.grossSum - item.discount);
       item.displayDiscount = item.autoDiscount;
+    });
+  } else if(r.discountRedistributionSaved){
+    r.items.forEach(item=>{
+      item.discount = item.savedManualDiscount;
+      item.sum = round2(item.grossSum - item.discount);
+      item.displayDiscount = item.savedManualDiscount;
     });
   }
   renderReceipt();
@@ -2728,11 +2739,18 @@ function setItemDiscount(itemId, value){
 // keeps showing whatever the last complete redistribution was — the total
 // discount is fixed and shared across all items, so a half-finished split
 // is not yet a real answer for any of them individually.
+// Reaching a complete redistribution is also the one moment it's worth
+// remembering: savedManualDiscount is a *separate* snapshot from
+// autoDiscount, kept specifically so toggleManualDiscountEdit() can restore
+// this exact split later rather than only ever falling back to the
+// automatic one. It's overwritten every time a new redistribution
+// completes, so it always holds the most recent successful one.
 function syncDiscountDisplayIfComplete(r){
   const target = round2(r.items.reduce((a,it)=>a+(it.autoDiscount||0),0));
   const live = round2(r.items.reduce((a,it)=>a+(it.discount||0),0));
   if(Math.abs(target-live) < 0.005){
-    r.items.forEach(it=>{ it.displayDiscount = it.discount; });
+    r.items.forEach(it=>{ it.displayDiscount = it.discount; it.savedManualDiscount = it.discount; });
+    r.discountRedistributionSaved = true;
   }
 }
 // Bulk action: this buyer is added to EVERY item if they're not already on
