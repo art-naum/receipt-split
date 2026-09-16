@@ -829,7 +829,7 @@
      distribution-status message (.remainder, appended after
      .discount-toggle-row below) always renders underneath the label+switch
      rather than beside them. */
-  .discount-toggle-group{display:flex;flex-direction:column;align-items:flex-start;gap:6px;flex-shrink:0;}
+  .discount-toggle-group{display:flex;flex-direction:column;align-items:flex-end;width:230px;gap:6px;flex-shrink:0;}
   .discount-toggle-row{display:flex;align-items:center;gap:8px;white-space:nowrap;}
   /* .remainder's own margin-top (shared with its other, non-flex use in
      renderAssignRow) would double up with the gap above — the gap alone
@@ -1331,6 +1331,23 @@ let discountInputRawValue = null;
 function clearDiscountInputRaw(){
   discountInputRawItemId = null;
   discountInputRawValue = null;
+}
+// Same reasoning as discountInputRaw* above, for the two other decimal
+// fields (paid amount per buyer, manual expense split): the field shows
+// exactly what was typed, comma included, while it's the one being
+// edited; p.amount / it.manualValues[bid] themselves stay normalized to
+// "." so every parseFloat() elsewhere can keep assuming a clean string.
+let paidAmountRawBuyerId = null;
+let paidAmountRawValue = null;
+function clearPaidAmountRaw(){
+  paidAmountRawBuyerId = null;
+  paidAmountRawValue = null;
+}
+let manualValueRawKey = null;
+let manualValueRawValue = null;
+function clearManualValueRaw(){
+  manualValueRawKey = null;
+  manualValueRawValue = null;
 }
 // Tracks which option is picked in the "Швидкі дії" panel's segmented
 // control: null (nothing chosen yet) | 'all' | 'selective'. Purely a UI
@@ -2391,6 +2408,11 @@ function setPaidAmount(buyerId, value){
   if(!r) return;
   const p = r.paidBy.find(x=>x.buyerId===buyerId);
   if(!p) return;
+  // Remember exactly what's in the field right now — see the comment by
+  // paidAmountRawBuyerId above for why the input can't just always show
+  // p.amount while this is going on.
+  paidAmountRawBuyerId = buyerId;
+  paidAmountRawValue = value;
   // "," and "." both mean "decimal point" to a person typing on a phone;
   // normalized once here so every parseFloat(p.amount) downstream — the
   // balancing logic below, the allocated-total check, renderResults() —
@@ -2465,10 +2487,15 @@ function renderPaidByBlock(r){
       const fieldId = `pv_${p.buyerId}`;
       const isFocused = active && active.id===fieldId;
       let val = p.amount ?? '';
-      if(val!=='' && !isFocused){ const num=parseFloat(val); if(!isNaN(num)) val = num.toFixed(2).replace('.', ','); }
+      if(paidAmountRawBuyerId===p.buyerId && paidAmountRawValue!=null){
+        val = paidAmountRawValue;
+      }else if(val!=='' && !isFocused){
+        const num=parseFloat(val);
+        if(!isNaN(num)) val = num.toFixed(2).replace('.', ',');
+      }
       return `<div class="manual-row">
         <span class="label">${escapeHtml(b?b.name:'?')}</span>
-        <input type="text" inputmode="decimal" style="width:92px;" value="${escapeHtml(String(val))}" id="${fieldId}" onfocus="setLastFocusedPayer('${p.buyerId}')" oninput="setPaidAmount('${p.buyerId}',this.value)"> ₴
+        <input type="text" inputmode="decimal" style="width:92px;" value="${escapeHtml(String(val))}" id="${fieldId}" onfocus="setLastFocusedPayer('${p.buyerId}')" oninput="setPaidAmount('${p.buyerId}',this.value)" onblur="clearPaidAmountRaw()"> ₴
       </div>`;
     }).join('');
 
@@ -2547,7 +2574,9 @@ function renderAssignRow(it){
         let val = it.manualValues[bid] ?? '';
         const fieldId = `mv_${it.id}_${bid}`;
         const isFocused = document.activeElement && document.activeElement.id===fieldId;
-        if(it.manualType==='amount' && val!=='' && !isFocused){
+        if(manualValueRawKey===(it.id+'_'+bid) && manualValueRawValue!=null){
+          val = manualValueRawValue;
+        }else if(it.manualType==='amount' && val!=='' && !isFocused){
           const num = parseFloat(val);
           if(!isNaN(num)) val = num.toFixed(2).replace('.', ',');
         }
@@ -2556,7 +2585,7 @@ function renderAssignRow(it){
           : '';
         return `<div class="manual-row">
           <span class="label">${escapeHtml(b?b.name:'?')}</span>
-          <input type="text" inputmode="decimal" style="width:92px;" value="${escapeHtml(String(val))}" id="mv_${it.id}_${bid}" onfocus="setLastFocusedBuyer('${it.id}','${bid}')" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
+          <input type="text" inputmode="decimal" style="width:92px;" value="${escapeHtml(String(val))}" id="mv_${it.id}_${bid}" onfocus="setLastFocusedBuyer('${it.id}','${bid}')" oninput="setManualValue('${it.id}','${bid}',this.value)" onblur="clearManualValueRaw()"> ${unit}${amtHint}
         </div>`;
       }).join('');
       // remainder indicator
@@ -2823,6 +2852,11 @@ function addRemainderToFocused(itemId, remainderVal){
 function setManualValue(itemId, buyerId, value){
   const it = state.receipt.items.find(i=>i.id===itemId);
   if(!it) return;
+  // Remember exactly what's in the field right now — see the comment by
+  // manualValueRawKey above for why the input can't just always show
+  // it.manualValues[buyerId] while this is going on.
+  manualValueRawKey = itemId+'_'+buyerId;
+  manualValueRawValue = value;
   // "," and "." both mean "decimal point" to a person typing on a phone;
   // normalized once here so every parseFloat(it.manualValues[...])
   // downstream — the two-buyer balancing below, allocateItem(), the
