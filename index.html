@@ -727,35 +727,45 @@
      <details> — not a child of it. <details> only ever contains its
      <summary>, so the browser's own "hide my non-summary children on
      close" mechanism has nothing to act on and never fights our
-     transitions: closing plays exactly the same as opening. The `+`
-     selector below just watches the details' `open` attribute.
+     transitions: closing plays exactly the same as opening.
      Back on grid-template-rows (0fr closed / 1fr open) per request, after
-     digging into what could actually break it in Safari. Two concrete
-     things fixed here:
+     digging into what could actually break it in Safari — now down to a
+     specific, documented cause rather than a guess. Tested: works on iOS
+     18 and every desktop browser; still failed to expand on iOS 26/Safari
+     26 specifically, while the disclosure arrow above (a plain, untransitioned
+     [open]-triggered rotate) kept working fine in the exact same browser.
+     That contrast is the tell: Safari has a known issue where a CSS
+     transition can be silently skipped — not just unsmoothed, skipped —
+     when the property it animates changes in the very same synchronous
+     step as whatever else triggered it (here, the native <details>
+     open/close). Non-animated [open] rules are unaffected, which is
+     exactly why the arrow rotates correctly while the grid row never
+     visibly grows. The documented fix (used for this same accordion
+     pattern) is to force a genuine frame boundary between the native
+     attribute flip and the property change that's supposed to animate,
+     via requestAnimationFrame — see toggleQuickActionsAnimation below,
+     which is the only reason .qa-open exists: it carries no meaning of
+     its own, it is purely a delayed echo of the native `open` attribute,
+     added/removed one frame later so the transition has something to
+     interpolate from. Two more fixes already folded in below:
      1) The closed and open rules used to declare DIFFERENT transition
         durations (.4s with a .1s delay vs .3s with none) on the very same
-        property that the [open] change is also flipping. Browsers don't
-        agree on which of the two timings "wins" when both the animated
-        value and its own transition timing change in the same style
-        recalculation — a known cross-browser gray area — so this is now
-        one single transition declared once, not redeclared per state.
-     2) Added `contain:layout` on the inner wrapper below — documented
-        as needed specifically on Safari to avoid a flicker at the end of
-        this exact 0fr/1fr transition on retina displays.
-     One risk I could NOT cleanly remove: `.quick-actions-body-inner`
-     switches from overflow:hidden to overflow:visible on open (needed so
-     the "Скинути" tooltip isn't clipped) — and per the CSS Grid spec, a
-     grid item's *automatic minimum size* collapses to 0 only while its
-     overflow is non-visible; the instant that flips to visible (overflow
-     isn't animatable, so it flips the moment [open] is added, before the
-     fr value has transitioned anywhere), the row's floor becomes
-     content-based instead of 0. By my reading that would make opening
-     look like an instant pop rather than a smooth grow, not a dead
-     block — but I can't rule out a worse Safari-specific interaction
-     without testing on an actual device. If it still doesn't open
-     smoothly on iPhone after this, that switched overflow is my prime
-     remaining suspect, and the max-height version (driven from JS,
-     no fr-unit involved at all) is the fallback with no such risk.
+        property being flipped. Browsers don't agree on which of the two
+        timings "wins" when both the animated value and its own transition
+        timing change in the same style recalculation — a known
+        cross-browser gray area — so this is now one single transition
+        declared once, not redeclared per state.
+     2) `contain:layout` on the inner wrapper below — documented as needed
+        specifically on Safari to avoid a flicker at the end of this exact
+        0fr/1fr transition on retina displays.
+     One risk I still haven't been able to cleanly rule out: the inner
+     wrapper switches from overflow:hidden to overflow:visible on open
+     (needed so the "Скинути" tooltip isn't clipped) — and per the CSS
+     Grid spec, a grid item's *automatic minimum size* collapses to 0 only
+     while its overflow is non-visible. If iOS 26 still misbehaves after
+     this fix, that's the next thing to isolate; the max-height version
+     (driven from JS, no fr-unit or overflow-dependent sizing involved at
+     all) remains the fallback with neither risk.
      The inner content fades and slides between two states — hidden
      (opacity 0, shifted up 20px) and visible (opacity 1, at rest) —
      using the same 0.5s transition both ways. Opening naturally plays
@@ -767,7 +777,7 @@
     grid-template-rows: 0fr;
     transition: grid-template-rows .35s cubic-bezier(.4,0,.2,1);
   }
-  .qa-toggle[open] + .quick-actions-body{
+  .quick-actions-body.qa-open{
     grid-template-rows: 1fr;
   }
   .quick-actions-body-inner{
@@ -781,7 +791,7 @@
     padding-top: 0px;
     border-top: 0px;
   }
-  .qa-toggle[open] + .quick-actions-body .quick-actions-body-inner{
+  .quick-actions-body.qa-open .quick-actions-body-inner{
     overflow: visible;
     opacity: 1;
     transform: translateY(0);
@@ -798,8 +808,13 @@
      chips when "Вибірково" is picked) and the discount switch — sit
      pinned to opposite edges via space-between. When there isn't room for
      both on one line, the discount switch (flex-shrink:0 below) simply
-     drops to its own line under the left group, same as before. */
-  .quick-equal-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+     drops to its own line under the left group, same as before.
+     align-items:flex-start (rather than center) keeps both groups' TOP
+     edges level with each other regardless of which one ends up taller —
+     e.g. once the discount group grows a status line underneath itself,
+     it would otherwise end up vertically centered against the (shorter)
+     left group instead of lining up with it at the top. */
+  .quick-equal-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;}
   .quick-actions-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1 1 auto;min-width:0;}
   /* Forces the buyer-chip row onto its own line within .quick-actions-left
      — it's grouped with На всіх/Вибірково/Скинути rather than sitting with
@@ -810,8 +825,16 @@
      runs out of width — so the "Перерозподіл знижок" label and its switch, being
      two separate children, could wrap apart from each other (label on one
      line, switch on the next). Grouping them into one flex item here makes
-     them wrap together as a single unit instead. */
-  .discount-toggle-group{display:flex;align-items:center;gap:8px;flex-shrink:0;white-space:nowrap;}
+     them wrap together as a single unit instead. Stacked as a column so the
+     distribution-status message (.remainder, appended after
+     .discount-toggle-row below) always renders underneath the label+switch
+     rather than beside them. */
+  .discount-toggle-group{display:flex;flex-direction:column;align-items:flex-start;gap:6px;flex-shrink:0;}
+  .discount-toggle-row{display:flex;align-items:center;gap:8px;white-space:nowrap;}
+  /* .remainder's own margin-top (shared with its other, non-flex use in
+     renderAssignRow) would double up with the gap above — the gap alone
+     already gives consistent spacing here. */
+  .discount-toggle-group .remainder{margin-top:0;}
   .quick-equal-row .mode-toggle{margin-top:0;}
   .icon-chip{
     position:relative;
@@ -1319,6 +1342,22 @@ let quickAssignMode = null;
 // resets alongside quickAssignMode whenever a receipt is freshly
 // loaded/opened/cleared, same call sites as resetQuickAssignMode() below.
 let quickActionsExpanded = false;
+// See the long comment above .quick-actions-body in the stylesheet for
+// why this exists at all: Safari can silently skip a CSS transition when
+// the property it animates changes in the exact same synchronous step as
+// whatever triggered it — here, the native <details> open/close. Reading
+// `detailsEl.open` fresh inside the callback (rather than capturing it
+// up front) means a rapid second click before the frame fires just makes
+// this settle on whichever state is actually current, instead of stomping
+// back to a stale one.
+function toggleQuickActionsAnimation(detailsEl){
+  quickActionsExpanded = detailsEl.open;
+  const body = detailsEl.nextElementSibling;
+  if(!body || !body.classList.contains('quick-actions-body')) return;
+  requestAnimationFrame(()=>{
+    body.classList.toggle('qa-open', detailsEl.open);
+  });
+}
 function resetQuickAssignMode(){ quickAssignMode = null; quickActionsExpanded = false; }
 function startEditManualItem(itemId){
   editingManualItemId = itemId;
@@ -1995,12 +2034,12 @@ function renderReceipt(){
       </div>
       <div class="section-kicker" style="margin:0 0 9px;">Чиї це покупки:</div>
       <div class="buyer-detail quick-actions-detail">
-        <details class="qa-toggle" ${quickActionsExpanded?'open':''} ontoggle="quickActionsExpanded=this.open">
+        <details class="qa-toggle" ${quickActionsExpanded?'open':''} ontoggle="toggleQuickActionsAnimation(this)">
           <summary class="subpanel-title clickable">
             Швидкі дії<svg class="disclosure-arrow" viewBox="0 0 8 14"><path d="M1 1L7 7L1 13"/></svg>
           </summary>
         </details>
-        <div class="quick-actions-body">
+        <div class="quick-actions-body${quickActionsExpanded?' qa-open':''}">
           <div class="quick-actions-body-inner">
             <div class="quick-equal-row">
               <div class="quick-actions-left">
@@ -2013,17 +2052,19 @@ function renderReceipt(){
               ${quickAssignMode==='selective' ? `<div class="quick-chips-row">${quickBuyerChips}</div>` : ''}
               </div>
 	            ${r.discountEditable ? `<div class="discount-toggle-group">
-	              <span style="font-size:0.85rem;color:var(--ink-soft);">Перерозподіл знижок</span>
-	              <label class="ios-switch">
-	                <input type="checkbox" ${r.manualDiscountEdit?'checked':''} onchange="toggleManualDiscountEdit()">
-	                <span class="ios-switch-track"></span>
-	                <span class="ios-switch-mark-on"></span>
-	                <span class="ios-switch-mark-off"></span>
-	                <span class="ios-switch-knob"></span>
-	              </label>
+	              <div class="discount-toggle-row">
+	                <span style="font-size:0.85rem;color:var(--ink-soft);">Перерозподіл знижок</span>
+	                <label class="ios-switch">
+	                  <input type="checkbox" ${r.manualDiscountEdit?'checked':''} onchange="toggleManualDiscountEdit()">
+	                  <span class="ios-switch-track"></span>
+	                  <span class="ios-switch-mark-on"></span>
+	                  <span class="ios-switch-mark-off"></span>
+	                  <span class="ios-switch-knob"></span>
+	                </label>
+	              </div>
+	              ${r.manualDiscountEdit ? discountDistributionMsg : ''}
 	            </div>` : ''}
             </div>
-            ${r.manualDiscountEdit ? discountDistributionMsg : ''}
           </div>
         </div>
       </div>
@@ -2515,7 +2556,7 @@ function renderAssignRow(it){
           : '';
         return `<div class="manual-row">
           <span class="label">${escapeHtml(b?b.name:'?')}</span>
-          <input type="number" step="${it.mode==='manual'&&it.manualType==='amount'?'0.01':'1'}" value="${val}" id="mv_${it.id}_${bid}" onfocus="setLastFocusedBuyer('${it.id}','${bid}')" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
+          <input type="text" inputmode="decimal" style="width:92px;" value="${escapeHtml(String(val))}" id="mv_${it.id}_${bid}" onfocus="setLastFocusedBuyer('${it.id}','${bid}')" oninput="setManualValue('${it.id}','${bid}',this.value)"> ${unit}${amtHint}
         </div>`;
       }).join('');
       // remainder indicator
@@ -2764,6 +2805,13 @@ function addRemainderToFocused(itemId, remainderVal){
 function setManualValue(itemId, buyerId, value){
   const it = state.receipt.items.find(i=>i.id===itemId);
   if(!it) return;
+  // "," and "." both mean "decimal point" to a person typing on a phone;
+  // normalized once here so every parseFloat(it.manualValues[...])
+  // downstream — the two-buyer balancing below, allocateItem(), the
+  // remainder check — can keep assuming a plain, parseable string. The
+  // "Частками" field never reaches here with a comma at all (it's still
+  // type="number", which blocks it natively), so this is a no-op for it.
+  value = String(value).replace(',', '.');
   it.manualValues[buyerId] = value;
 
   // With exactly two people assigned to "% вручну" / "₴ вручну", there's only one
