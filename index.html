@@ -2483,13 +2483,17 @@ function renderPaidByBlock(r){
     manualRows = orderedBuyerIds(r.paidBy.map(p=>p.buyerId)).map(bid=>{
       const p = r.paidBy.find(x=>x.buyerId===bid);
       const b = buyers.find(x=>x.id===p.buyerId);
-      const active = document.activeElement;
       const fieldId = `pv_${p.buyerId}`;
-      const isFocused = active && active.id===fieldId;
+      // Raw tracking only starts once the first keystroke of THIS focus
+      // session has actually fired oninput — so checking isFocused here
+      // instead of just falling through to the formatted value would leave
+      // a gap the instant the field is clicked into (before typing
+      // anything), showing the unformatted internal "." value rather than
+      // the ",": same reasoning as the discount field's value ternary.
       let val = p.amount ?? '';
       if(paidAmountRawBuyerId===p.buyerId && paidAmountRawValue!=null){
         val = paidAmountRawValue;
-      }else if(val!=='' && !isFocused){
+      }else if(val!==''){
         const num=parseFloat(val);
         if(!isNaN(num)) val = num.toFixed(2).replace('.', ',');
       }
@@ -2572,11 +2576,14 @@ function renderAssignRow(it){
       modeUi += orderedBuyerIds(it.buyerIds).map(bid=>{
         const b = buyers.find(x=>x.id===bid);
         let val = it.manualValues[bid] ?? '';
-        const fieldId = `mv_${it.id}_${bid}`;
-        const isFocused = document.activeElement && document.activeElement.id===fieldId;
+        // Same reasoning as the pv_ field above: raw tracking only starts
+        // once the first keystroke of this focus session has fired
+        // oninput, so gating the formatted fallback on isFocused would
+        // show the internal "." value for the moment between focusing the
+        // field and typing anything into it.
         if(manualValueRawKey===(it.id+'_'+bid) && manualValueRawValue!=null){
           val = manualValueRawValue;
-        }else if(it.manualType==='amount' && val!=='' && !isFocused){
+        }else if(it.manualType==='amount' && val!==''){
           const num = parseFloat(val);
           if(!isNaN(num)) val = num.toFixed(2).replace('.', ',');
         }
