@@ -598,7 +598,7 @@
   .ios-switch input:checked ~ .ios-switch-knob{transform:translateX(23px);}
   .ios-switch-mark-on{
     position:absolute;top:50%;left:14px;
-    width:1.4px;height:10px;
+    width:1.3px;height:10px;
     background:#fff;
     transform:translateY(-50%);
     opacity:0;
@@ -609,7 +609,7 @@
   .ios-switch-mark-off{
     position:absolute;top:50%;right:9px;
     width:10px;height:10px;
-    border:1.4px solid #fff;
+    border:1.3px solid #fff;
     border-radius:50%;
     transform:translateY(-50%);
     opacity:.9;
@@ -815,7 +815,7 @@
      it would otherwise end up vertically centered against the (shorter)
      left group instead of lining up with it at the top. */
   .quick-equal-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;}
-  .quick-actions-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1 1 auto;min-width:0;}
+  .quick-actions-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1 1 220px;min-width:180px;}
   /* Forces the buyer-chip row onto its own line within .quick-actions-left
      — it's grouped with На всіх/Вибірково/Скинути rather than sitting with
      the discount switch, but with potentially many names it still needs
@@ -829,7 +829,7 @@
      distribution-status message (.remainder, appended after
      .discount-toggle-row below) always renders underneath the label+switch
      rather than beside them. */
-  .discount-toggle-group{display:flex;flex-direction:column;align-items:flex-end;width:230px;gap:6px;flex-shrink:0;}
+  .discount-toggle-group{display:flex;flex-direction:column;align-items:flex-start;min-width:280px;flex:2 1 340px;gap:6px;}
   .discount-toggle-row{display:flex;align-items:center;gap:8px;white-space:nowrap;}
   /* .remainder's own margin-top (shared with its other, non-flex use in
      renderAssignRow) would double up with the gap above — the gap alone
@@ -2070,7 +2070,6 @@ function renderReceipt(){
               </div>
 	            ${r.discountEditable ? `<div class="discount-toggle-group">
 	              <div class="discount-toggle-row">
-	                <span style="font-size:0.85rem;color:var(--ink-soft);">Перерозподіл знижок</span>
 	                <label class="ios-switch">
 	                  <input type="checkbox" ${r.manualDiscountEdit?'checked':''} onchange="toggleManualDiscountEdit()">
 	                  <span class="ios-switch-track"></span>
@@ -2078,6 +2077,7 @@ function renderReceipt(){
 	                  <span class="ios-switch-mark-off"></span>
 	                  <span class="ios-switch-knob"></span>
 	                </label>
+	                <span style="font-size:0.85rem;color:var(--ink-soft);">Перерозподіл знижок</span>
 	              </div>
 	              ${r.manualDiscountEdit ? discountDistributionMsg : ''}
 	            </div>` : ''}
