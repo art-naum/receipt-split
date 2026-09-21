@@ -205,7 +205,7 @@
   }
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
   .buyer-add-row{flex-wrap:nowrap;}
-  .buyer-add-row input{flex:1 1 auto;min-width:0;}
+  .buyer-add-row input{flex:1 1 auto;min-width:0;max-width:250px;}
   .buyer-add-row .btn-primary{flex-shrink:0;}
   input[type=text], input[type=number], select{
     font-family:inherit;
@@ -581,11 +581,11 @@
   .ios-switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:2;}
   .ios-switch-track{
     position:absolute;inset:0;
-    background:#5d5d5f;
+    background:rgba(93, 93, 95, 0.5);
     border-radius:999px;
     transition:background-color .2s ease;
   }
-  .ios-switch input:checked ~ .ios-switch-track{background:#34c759;}
+  .ios-switch input:checked ~ .ios-switch-track{background:rgba(52, 199, 89, 1);}
   .ios-switch-knob{
     position:absolute;
     top:2px;left:2px;
